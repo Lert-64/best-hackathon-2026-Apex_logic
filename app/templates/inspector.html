@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кабінет Інспектора | Межа</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        'meza-blue': '#0057B7',
+                        'meza-dark': '#003f8a',
+                        'charcoal': '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        body { 
+            background-color: #f8fafc;
+            background-image: linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+                              linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+            background-size: 40px 40px;
+            -webkit-font-smoothing: antialiased; 
+        }
+
+        .task-card {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .task-card.htmx-swapping {
+            opacity: 0;
+            transform: scale(0.95) translateY(20px);
+            height: 0;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: inline-flex; }
+        .htmx-request .btn-text { display: none; }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="text-charcoal font-sans flex flex-col min-h-screen">
+
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200 px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between shadow-sm">
+        <div class="max-w-7xl mx-auto w-full flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-meza-blue text-white rounded-lg flex items-center justify-center font-black text-lg tracking-tighter shadow-sm">M</div>
+                <div class="flex flex-col">
+                    <span class="font-bold text-[15px] leading-tight text-charcoal">Межа</span>
+                    <span class="text-[10px] font-bold text-meza-blue uppercase tracking-widest leading-none">Кабінет Валідатора</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div class="hidden sm:flex items-center gap-2 text-sm font-semibold text-slate-600 border-r border-slate-200 pr-4">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    На зміні
+                </div>
+                <a href="login.html" class="text-slate-500 hover:text-red-600 transition-colors flex items-center gap-2 text-sm font-bold">
+                    <span class="hidden sm:inline">Вийти</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        
+        <div class="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 fade-in">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Черга на валідацію</h1>
+                <p class="text-slate-500 mt-2 text-sm">Порівняйте висновок ШІ з фотодоказами волонтера та винесіть рішення.</p>
+            </div>
+            <button hx-get="/api/anomalies/pending-validation" hx-target="#validation-queue" class="bg-white border border-slate-200 hover:border-meza-blue text-slate-600 hover:text-meza-blue px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Оновити чергу
+            </button>
+        </div>
+
+        <div id="validation-queue" hx-get="/api/anomalies/pending-validation" hx-trigger="load" class="space-y-10">
+            
+            <div class="task-card bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden flex flex-col fade-in">
+                
+                <div class="bg-slate-900 text-white px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+                    <div class="flex items-center gap-4">
+                        <span class="bg-amber-400 text-slate-900 text-[10px] font-black px-3 py-1.5 rounded uppercase tracking-widest shadow-sm">Очікує рішення</span>
+                        <div class="font-mono text-sm">
+                            <span class="text-slate-400">Кадастровий №:</span> 
+                            <span class="font-bold text-white tracking-wider">4610136300:05:014:0021</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="text-sm">
+                            <span class="text-slate-400 block text-[10px] uppercase tracking-widest font-bold">Власник / Користувач</span>
+                            <span class="font-semibold">ТОВ "Агро-Транс" (ІПН: 38291044)</span>
+                        </div>
+                        <div class="flex items-center gap-3 border-l border-slate-700 pl-6">
+                            <span class="text-slate-400 text-xs uppercase tracking-widest font-bold">Ризик ШІ</span>
+                            <div class="bg-red-500 text-white font-black text-xl px-3 py-1 rounded-lg shadow-sm">95%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+                    
+                    <div class="p-8 bg-slate-50 flex flex-col">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 shadow-sm border border-amber-200">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-black uppercase tracking-widest text-slate-800">Реальність</h3>
+                                <p class="text-xs font-semibold text-slate-500">Дані від волонтера</p>
+                            </div>
+                        </div>
+
+                        <div class="w-full aspect-video bg-slate-200 rounded-2xl mb-6 overflow-hidden relative shadow-inner border border-slate-300">
+                            <img src="https://images.unsplash.com/photo-1587293852726-70cdb56c2866?auto=format&fit=crop&q=80&w=1200" alt="Доказ волонтера" class="w-full h-full object-cover">
+                            <div class="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-white text-xs font-mono px-3 py-1.5 rounded-lg shadow-lg">ID: VOL-e4a2</div>
+                        </div>
+
+                        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex-grow relative">
+                            <div class="absolute -top-3 left-6 bg-white px-2 text-[10px] font-black uppercase tracking-widest text-meza-blue">Коментар з місця</div>
+                            <p class="text-slate-700 leading-relaxed font-medium italic mt-2 text-[15px]">"Тут стоїть величезний працюючий ангар, хоча по документах пустир. Територія огороджена високим парканом, є охорона і камери відеоспостереження. Активний рух фур."</p>
+                        </div>
+                    </div>
+
+                    <div class="p-8 bg-white flex flex-col">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-xl bg-meza-blue/10 text-meza-blue flex items-center justify-center shrink-0 shadow-sm border border-meza-blue/20">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-black uppercase tracking-widest text-slate-800">Очікування</h3>
+                                <p class="text-xs font-semibold text-slate-500">Висновок системи ШІ</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 border border-blue-100 rounded-2xl p-6 mb-8">
+                            <p class="text-slate-800 text-[15px] font-medium leading-relaxed mb-5">Задекларовано 0 кв.м нерухомості на ділянці 1.5 га (Цільове: Комерція). Реєстр речових прав не містить записів щодо об'єктів на даній території.</p>
+                            
+                            <div class="pt-5 border-t border-blue-200/50 flex justify-between items-center">
+                                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Розрахунок втрат</span>
+                                <span class="font-mono text-lg font-black text-red-600 bg-white px-3 py-1 rounded-lg border border-red-100 shadow-sm">145 000.00 ₴</span>
+                            </div>
+                        </div>
+
+                        <form 
+                            hx-post="/api/anomalies/uuid-1/report" 
+                            hx-ext="json-enc"
+                            hx-target="closest .task-card"
+                            hx-swap="outerHTML swap:400ms"
+                            x-data="{ comment: '', confirmed: null }"
+                            @submit="
+                                if(confirmed === false && comment.trim() === '') {
+                                    $event.preventDefault();
+                                    alert('Для відхилення звіту обов\'язково вкажіть причину в коментарі.');
+                                }
+                            "
+                            class="mt-auto space-y-5 bg-slate-50 p-6 rounded-2xl border border-slate-200"
+                        >
+                            <input type="hidden" name="is_confirmed" :value="confirmed">
+
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Коментар Інспектора (Лог)</label>
+                                <textarea 
+                                    name="inspector_comment" 
+                                    x-model="comment"
+                                    rows="2" 
+                                    class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-meza-blue focus:border-meza-blue shadow-sm bg-white transition-all text-sm resize-none"
+                                    placeholder="Юридичне обґрунтування вашого рішення..."
+                                ></textarea>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <button 
+                                    type="submit" 
+                                    @click="confirmed = false"
+                                    :class="comment.trim() === '' ? 'opacity-60 cursor-not-allowed' : 'hover:bg-green-50 hover:border-green-500 hover:text-green-600'"
+                                    class="py-4 px-4 rounded-xl font-bold text-[15px] border-2 border-slate-300 text-slate-500 transition-all bg-white active:scale-95 flex justify-center items-center gap-2 shadow-sm"
+                                >
+                                    <span class="btn-text flex items-center gap-2 text-green-600">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                        Спростувати
+                                    </span>
+                                    <svg class="htmx-indicator animate-spin w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                </button>
+                                
+                                <button 
+                                    type="submit" 
+                                    @click="confirmed = true"
+                                    class="py-4 px-4 rounded-xl font-bold text-[15px] bg-red-600 text-white hover:bg-red-700 transition-all active:scale-95 shadow-md shadow-red-600/20 flex justify-center items-center gap-2 border-2 border-transparent"
+                                >
+                                    <span class="btn-text flex items-center gap-2">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                        Підтвердити порушення
+                                    </span>
+                                    <svg class="htmx-indicator animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </article>
+
+        </div>
+    </main>
+
+</body>
+</html>
