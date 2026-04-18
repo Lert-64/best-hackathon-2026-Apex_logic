@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from uuid import UUID
-from app.models.enums import UserRole
+from app.models.user_model import UserRole
 
 class LoginRequest(BaseModel):
     username: str

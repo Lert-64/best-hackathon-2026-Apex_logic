@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
-from app.models.enums import AnomalyZone, AnomalyStatus
+from app.models.anomaly_model import AnomalyZone, AnomalyStatus
 
 class AnomalyResponse(BaseModel):
     id: UUID

@@ -4,7 +4,7 @@ from sqlalchemy import String, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from app.backend.database import Base
-from app.models.enums import UserRole
+
 
 
 class UserRole(str, enum.Enum):
@@ -23,4 +23,3 @@ class User(Base):
 
 
 
-"
