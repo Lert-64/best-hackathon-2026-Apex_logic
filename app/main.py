@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -6,7 +9,6 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.routers import router as api_router
-from app.core.config import settings
 
 app = FastAPI(
     title="AssetVision OTG",
@@ -29,6 +31,10 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+media_root = Path(os.getenv("MEDIA_ROOT", "/app/media"))
+media_root.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(media_root)), name="media")
 
 templates = Jinja2Templates(directory="app/templates")
 

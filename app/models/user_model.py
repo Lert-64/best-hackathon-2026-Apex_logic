@@ -10,6 +10,7 @@ from app.backend.database import Base
 class UserRole(str, enum.Enum):
     ADMIN = "ADMIN"
     INSPECTOR = "INSPECTOR"
+    VOLUNTEER = "VOLUNTEER"
 
 
 

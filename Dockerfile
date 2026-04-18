@@ -11,10 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY ./requirements.txt /code/requirements.txt
-
 RUN pip install --no-cache-dir -r /code/requirements.txt
 
 COPY ./app /code/app
+COPY ./alembic /code/alembic
+COPY ./alembic.ini /code/alembic.ini
+COPY ./scripts /code/scripts
 
 EXPOSE 8000
 
