@@ -14,6 +14,7 @@ class AnomalyResponse(BaseModel):
     potential_loss_uah: Optional[float] = None
     risk_score: Optional[int] = None
     ai_summary: Optional[str] = None
+    ai_decision_confidence: Optional[int] = None
     status: AnomalyStatus
     volunteer_id: Optional[UUID] = None
     volunteer_photo_url: Optional[str] = None

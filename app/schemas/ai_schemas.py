@@ -13,3 +13,4 @@ class AiAuditCandidate(BaseModel):
 class AiAnomalyProfile(BaseModel):
     risk_score: int = Field(ge=0, le=100)
     ai_summary: str
+    decision_confidence: int = Field(default=50, ge=0, le=100)

@@ -12,9 +12,7 @@ from app.services.ai_service import enrich_candidates_with_ai
 
 
 async def run_fuzzy_matching_audit(db: AsyncSession) -> tuple[list[Anomalies], bool]:
-    """Run matching audit between land records and real estate records with AI fallback."""
 
-    # Enable trigram extension for similarity search in PostgreSQL.
     await db.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
 
     lands_result = await db.execute(select(LandRecords))
@@ -63,6 +61,7 @@ async def run_fuzzy_matching_audit(db: AsyncSession) -> tuple[list[Anomalies], b
             real_estate_id=None,
             risk_score=0,
             ai_summary=fallback_summary,
+            ai_decision_confidence=None,
             potential_loss_uah=loss,
             status=AnomalyStatus.PENDING_ADMIN,
         )
@@ -83,6 +82,7 @@ async def run_fuzzy_matching_audit(db: AsyncSession) -> tuple[list[Anomalies], b
     for anomaly, profile in zip(anomalies_to_create, ai_result.profiles):
         anomaly.risk_score = profile.risk_score
         anomaly.ai_summary = profile.ai_summary
+        anomaly.ai_decision_confidence = profile.decision_confidence
 
     if anomalies_to_create:
         db.add_all(anomalies_to_create)

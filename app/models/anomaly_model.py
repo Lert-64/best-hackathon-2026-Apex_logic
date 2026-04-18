@@ -34,6 +34,7 @@ class Anomalies(Base):
 
     risk_score: Mapped[int] = mapped_column(Integer)
     ai_summary: Mapped[str] = mapped_column(Text)
+    ai_decision_confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     potential_loss_uah: Mapped[Decimal] = mapped_column(DECIMAL(15, 2))
     status: Mapped[AnomalyStatus] = mapped_column(SQLEnum(AnomalyStatus), default=AnomalyStatus.PENDING_ADMIN)
 

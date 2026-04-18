@@ -45,6 +45,7 @@ async def _to_response(anomaly: Anomalies, db: db_dep) -> AnomalyResponse:
         potential_loss_uah=float(anomaly.potential_loss_uah) if anomaly.potential_loss_uah is not None else None,
         risk_score=anomaly.risk_score,
         ai_summary=anomaly.ai_summary,
+        ai_decision_confidence=anomaly.ai_decision_confidence,
         status=anomaly.status,
         volunteer_id=anomaly.volunteer_id,
         volunteer_photo_url=volunteer_photo_url,
