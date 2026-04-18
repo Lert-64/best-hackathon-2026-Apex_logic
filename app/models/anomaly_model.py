@@ -7,11 +7,6 @@ from sqlalchemy import String, Integer, ForeignKey, DateTime, Enum as SQLEnum, T
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.backend.database import Base
-from app.models.anomaly_model import AnomalyZone, AnomalyStatus
-
-
-
-
 
 class AnomalyZone(str, enum.Enum):
     RED = "RED"

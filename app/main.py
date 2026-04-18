@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-from app.routers.auth_router import router as auth_router
+from app.routers import router as api_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -32,12 +32,20 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 templates = Jinja2Templates(directory="app/templates")
 
-app.include_router(auth_router)
+app.include_router(api_router)
 
 @app.get("/", tags=["UI"])
 async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"request": request},
+    )
 
 @app.get("/inspector", tags=["UI"])
 async def inspector_view(request: Request):
-    return templates.TemplateResponse("inspector.html", {"request": request})
+    return templates.TemplateResponse(
+        request=request,
+        name="inspector.html",
+        context={"request": request},
+    )
