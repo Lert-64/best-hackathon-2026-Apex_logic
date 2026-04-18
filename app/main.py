@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -9,9 +8,10 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.routers import router as api_router
+from app.core.config import settings
 
 app = FastAPI(
-    title="AssetVision OTG",
+    title=settings.PROJECT_NAME,
     description="Система автоматизованого фінансового аудиту громад",
     version="1.0.0"
 )
@@ -32,7 +32,7 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-media_root = Path(os.getenv("MEDIA_ROOT", "/app/media"))
+media_root = Path(settings.MEDIA_ROOT)
 media_root.mkdir(parents=True, exist_ok=True)
 app.mount("/media", StaticFiles(directory=str(media_root)), name="media")
 

@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -6,6 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy import select
 
 from app.backend.dependencies import db_dep, require_role
+from app.core.config import settings
 from app.models.anomaly_model import Anomalies, AnomalyStatus, AnomalyZone
 from app.models.audit_log_model import AuditLogs
 from app.models.land_model import LandRecords
@@ -14,7 +14,7 @@ from app.schemas.anomaly_schemas import AnomalyResponse, AnomalyStatsResponse, I
 
 router = APIRouter(prefix="/api/anomalies", tags=["Anomalies"])
 
-MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", "/app/media"))
+MEDIA_ROOT = Path(settings.MEDIA_ROOT)
 VOLUNTEER_UPLOAD_DIR = MEDIA_ROOT / "volunteer_reports"
 
 
