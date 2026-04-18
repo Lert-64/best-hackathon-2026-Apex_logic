@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 
 from openai import AsyncOpenAI
+from pydantic import BaseModel
 
 from app.core.config import settings
 from app.schemas.ai_schemas import AiAnomalyProfile, AiAuditCandidate
@@ -15,6 +16,10 @@ DEFAULT_BATCH_SIZE = 5
 class AiBatchResult:
     profiles: list[AiAnomalyProfile]
     used_remote_ai: bool
+
+
+class AiProfilesPayload(BaseModel):
+    profiles: list[AiAnomalyProfile]
 
 
 def _local_profile(candidate: AiAuditCandidate) -> AiAnomalyProfile:
@@ -103,34 +108,36 @@ def _postprocess_profile(candidate: AiAuditCandidate, profile: AiAnomalyProfile)
 async def _request_profiles_from_openai(batch: list[AiAuditCandidate]) -> list[AiAnomalyProfile]:
     client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
+    clean_batch = [
+        {key: value for key, value in item.model_dump().items() if value is not None}
+        for item in batch
+    ]
+
     prompt = (
         "You are an auditor for land and property registries. "
-        "For each input item, return JSON object: "
-        "{\"profiles\": [{\"risk_score\": int 0..100, \"ai_summary\": short string, "
-        "\"decision_confidence\": int 0..100}]}. "
+        "For each input item, return one profile in the same order. "
+        "Each profile contains risk_score (0..100), ai_summary (short string), "
+        "decision_confidence (0..100). "
         "The profiles list must have the same length and order as input. "
-        "Do not add any text outside JSON.\n\n"
-        f"Input data: {json.dumps([item.model_dump() for item in batch], ensure_ascii=False)}"
+        f"Input data: {json.dumps(clean_batch, ensure_ascii=False)}"
     )
 
-    completion = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        temperature=0,
-        response_format={"type": "json_object"},
+    completion = await client.beta.chat.completions.parse(
+        model="gpt-4.1",
+        temperature=0.1,
+        timeout=10,
         messages=[
-            {"role": "system", "content": "Return only valid JSON."},
+            {"role": "system", "content": "Return structured output that matches the response schema."},
             {"role": "user", "content": prompt},
         ],
+        response_format=AiProfilesPayload,
     )
 
-    content = completion.choices[0].message.content or "{}"
-    payload = json.loads(content)
-    raw_profiles = payload.get("profiles", payload)
+    payload = completion.choices[0].message.parsed
+    if payload is None:
+        raise ValueError("OpenAI response parsing failed")
 
-    if not isinstance(raw_profiles, list):
-        raise ValueError("OpenAI response does not contain a list")
-
-    profiles = [AiAnomalyProfile.model_validate(item) for item in raw_profiles]
+    profiles = payload.profiles
     if len(profiles) != len(batch):
         raise ValueError("OpenAI response size mismatch")
 
