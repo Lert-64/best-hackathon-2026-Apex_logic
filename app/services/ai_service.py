@@ -1,218 +1,178 @@
-import os
+from __future__ import annotations
+
 import json
-import asyncio
-from typing import Optional, List, Tuple
+from dataclasses import dataclass
 
-from pydantic import BaseModel, Field, field_validator
 from openai import AsyncOpenAI
-from dotenv import load_dotenv
+from pydantic import BaseModel
 
-load_dotenv()
+from app.core.config import settings
+from app.schemas.ai_schemas import AiAnomalyProfile, AiAuditCandidate
 
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-
-class AIInputData(BaseModel):
-    cadastral_number: str
-    area_ha: float
-    valuation: float
-    ownership_type: str
-    purpose: str
-
-    tax_id: Optional[str] = None
-    owner_name: Optional[str] = None
-
-    real_estate_area: Optional[float] = None
-    real_estate_objects: Optional[int] = None
-
-    @field_validator("area_ha")
-    @classmethod
-    def validate_area(cls, v):
-        if v <= 0:
-            raise ValueError("Area must be > 0")
-        return v
-
-    @field_validator("valuation")
-    @classmethod
-    def validate_valuation(cls, v):
-        if v < 0:
-            raise ValueError("Valuation cannot be negative")
-        return v
-
-    @field_validator("real_estate_area")
-    @classmethod
-    def validate_real_estate_area(cls, v):
-        if v is not None and v < 0:
-            raise ValueError("Real estate area cannot be negative")
-        return v
+DEFAULT_BATCH_SIZE = 5
 
 
-class AIAnomalyProfile(BaseModel):
-    risk_score: int = Field(ge=0, le=100)
-    ai_summary: str = Field(max_length=200)
+@dataclass(slots=True)
+class AiBatchResult:
+    profiles: list[AiAnomalyProfile]
+    used_remote_ai: bool
 
-    decision_confidence: int = Field(
-        ge=0,
-        le=100,
-        description="0 = highly ambiguous, 100 = fully unambiguous"
+
+class AiProfilesPayload(BaseModel):
+    profiles: list[AiAnomalyProfile]
+
+
+def _local_profile(candidate: AiAuditCandidate) -> AiAnomalyProfile:
+    purpose = (candidate.purpose or "").lower()
+    ownership = (candidate.ownership_type or "").lower()
+
+    if candidate.zone == "RED":
+        risk_score = 80
+        reason = "High risk: record was not matched across registries"
+        confidence = 75
+    elif "комунал" in ownership:
+        risk_score = 45
+        reason = "Potential community investment case"
+        confidence = 65
+    elif "комерц" in purpose:
+        risk_score = 60
+        reason = "Commercial purpose needs additional manual review"
+        confidence = 70
+    else:
+        risk_score = 35
+        reason = "Needs manual validation"
+        confidence = 55
+
+    return AiAnomalyProfile(
+        risk_score=risk_score,
+        ai_summary=reason,
+        decision_confidence=confidence,
     )
 
 
-SYSTEM_PROMPT = """
-You are a financial monitoring analyst for a state taxation system.
+def _apply_boost(candidate: AiAuditCandidate) -> int:
+    boost = 0
 
-You analyze structured real estate and land data ONLY.
+    if candidate.zone == "RED":
+        boost += 10
 
-COMMON RISK PATTERNS:
-- land used without registered real estate
-- undervalued property assessments
-- missing taxpayer identification
-- mismatch between land purpose and assets
+    if not candidate.tax_id:
+        boost += 15
 
-TASK 1:
-Estimate tax evasion risk from 0 to 100.
+    if candidate.potential_loss_uah and candidate.potential_loss_uah > 100000:
+        boost += 10
 
-TASK 2:
-Generate a short explanation of the main anomaly.
+    purpose = (candidate.purpose or "").lower()
+    if "комерц" in purpose or "komerc" in purpose:
+        boost += 10
 
-TASK 3 (DECISION CONFIDENCE):
-Estimate how unambiguous the interpretation of this record is.
-
-Scale:
-- 100 = only one obvious interpretation exists
-- 70-90 = mostly clear, minor ambiguity
-- 40-70 = multiple plausible interpretations
-- 0-40 = highly ambiguous data
-
-RULES:
-- Do NOT invent facts
-- Use ONLY provided input
-- If data is missing → confidence must decrease
-
-OUTPUT FORMAT:
-risk_score: integer (0-100)
-ai_summary: one sentence (max 200 chars)
-decision_confidence: integer (0-100)
-"""
+    return boost
 
 
-class AnomalyDetectorAI:
+def _adjust_confidence(candidate: AiAuditCandidate, base_confidence: int) -> int:
+    confidence = base_confidence
 
-    # -------------------------
-    # SINGLE ANALYSIS
-    # -------------------------
-    @staticmethod
-    async def analyze_record(data: AIInputData) -> AIAnomalyProfile:
+    if not candidate.tax_id:
+        confidence -= 10
 
-        clean_data = {
-            k: v for k, v in data.model_dump().items()
-            if v is not None
-        }
+    if not candidate.location:
+        confidence -= 10
 
-        try:
-            response = await client.beta.chat.completions.parse(
-                model="gpt-4.1",
-                temperature=0.1,
-                timeout=10,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": json.dumps(clean_data, ensure_ascii=False)
-                    }
-                ],
-                response_format=AIAnomalyProfile
-            )
+    if not candidate.purpose:
+        confidence -= 10
 
-            result = response.choices[0].message.parsed
+    if candidate.purpose and candidate.ownership_type:
+        confidence += 5
 
-        except Exception as e:
-            return AIAnomalyProfile(
-                risk_score=50,
-                ai_summary=f"Fallback error: {str(e)[:60]}",
-                decision_confidence=0
-            )
+    if candidate.zone == "RED" and candidate.potential_loss_uah is not None:
+        confidence += 5
 
-        return AnomalyDetectorAI._postprocess(result, data)
+    return max(0, min(100, confidence))
 
-    @staticmethod
-    async def analyze_batch(
-        items: List[AIInputData]
-    ) -> Tuple[AIAnomalyProfile, ...]:
 
-        results: List[AIAnomalyProfile] = []
+def _postprocess_profile(candidate: AiAuditCandidate, profile: AiAnomalyProfile) -> AiAnomalyProfile:
+    boosted_risk = min(100, profile.risk_score + _apply_boost(candidate))
+    adjusted_confidence = _adjust_confidence(candidate, profile.decision_confidence)
 
-        for i in range(0, len(items), 5):
-            batch = items[i:i + 5]
+    summary = (profile.ai_summary or "").strip()
+    if not summary:
+        summary = "Insufficient data for conclusion."
 
-            tasks = [
-                AnomalyDetectorAI.analyze_record(item)
-                for item in batch
-            ]
+    return AiAnomalyProfile(
+        risk_score=boosted_risk,
+        ai_summary=summary[:200],
+        decision_confidence=adjusted_confidence,
+    )
 
-            batch_results = await asyncio.gather(*tasks)
-            results.extend(batch_results)
 
-        return tuple(results)
+async def _request_profiles_from_openai(batch: list[AiAuditCandidate]) -> list[AiAnomalyProfile]:
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
-    @staticmethod
-    def _postprocess(result: AIAnomalyProfile, data: AIInputData):
+    clean_batch = [
+        {key: value for key, value in item.model_dump().items() if value is not None}
+        for item in batch
+    ]
 
-        boost = AnomalyDetectorAI._apply_boost(data)
-        result.risk_score = min(100, result.risk_score + boost)
+    prompt = (
+        "You are an auditor for land and property registries. "
+        "For each input item, return one profile in the same order. "
+        "Each profile contains risk_score (0..100), ai_summary (short string), "
+        "decision_confidence (0..100). "
+        "The profiles list must have the same length and order as input. "
+        f"Input data: {json.dumps(clean_batch, ensure_ascii=False)}"
+    )
 
-        result.decision_confidence = AnomalyDetectorAI._adjust_confidence(data, result)
+    completion = await client.beta.chat.completions.parse(
+        model="gpt-4.1",
+        temperature=0.1,
+        timeout=10,
+        messages=[
+            {"role": "system", "content": "Return structured output that matches the response schema."},
+            {"role": "user", "content": prompt},
+        ],
+        response_format=AiProfilesPayload,
+    )
 
-        return AnomalyDetectorAI._guard(result)
+    payload = completion.choices[0].message.parsed
+    if payload is None:
+        raise ValueError("OpenAI response parsing failed")
 
-    @staticmethod
-    def _apply_boost(data: AIInputData) -> int:
-        boost = 0
+    profiles = payload.profiles
+    if len(profiles) != len(batch):
+        raise ValueError("OpenAI response size mismatch")
 
-        if data.area_ha > 2 and not data.real_estate_area:
-            boost += 20
+    return profiles
 
-        if not data.tax_id:
-            boost += 15
 
-        if data.area_ha and data.valuation:
-            price_per_ha = data.valuation / data.area_ha
-            if price_per_ha < 1000:
-                boost += 10
+async def enrich_candidates_with_ai(
+    candidates: list[AiAuditCandidate],
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> AiBatchResult:
+    if not candidates:
+        return AiBatchResult(profiles=[], used_remote_ai=False)
 
-        if "комерц" in data.purpose.lower() and not data.real_estate_area:
-            boost += 15
+    # Do not fail the whole audit flow if external AI is unavailable.
+    remote_ai_enabled = bool(settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.strip())
+    used_remote_ai = False
+    profiles: list[AiAnomalyProfile] = []
 
-        return boost
+    effective_batch_size = batch_size if batch_size > 0 else DEFAULT_BATCH_SIZE
 
-    @staticmethod
-    def _adjust_confidence(data: AIInputData, result: AIAnomalyProfile) -> int:
-        confidence = result.decision_confidence
+    for start in range(0, len(candidates), effective_batch_size):
+        batch = candidates[start : start + effective_batch_size]
 
-        if not data.tax_id:
-            confidence -= 10
+        if remote_ai_enabled:
+            try:
+                batch_profiles = await _request_profiles_from_openai(batch)
+                used_remote_ai = True
+            except Exception:
+                batch_profiles = [_local_profile(item) for item in batch]
+        else:
+            batch_profiles = [_local_profile(item) for item in batch]
 
-        if not data.real_estate_area:
-            confidence -= 10
+        profiles.extend(_postprocess_profile(item, profile) for item, profile in zip(batch, batch_profiles))
 
-        if data.area_ha > 5 and not data.real_estate_objects:
-            confidence -= 5
+    return AiBatchResult(profiles=profiles, used_remote_ai=used_remote_ai)
 
-        if data.real_estate_area and data.real_estate_objects:
-            confidence += 5
 
-        return max(0, min(100, confidence))
 
-    @staticmethod
-    def _guard(result: AIAnomalyProfile) -> AIAnomalyProfile:
-
-        result.risk_score = max(0, min(100, result.risk_score))
-        result.decision_confidence = max(0, min(100, result.decision_confidence))
-
-        if len(result.ai_summary) > 200:
-            result.ai_summary = result.ai_summary[:200]
-
-        if not result.ai_summary.strip():
-            result.ai_summary = "Insufficient data for conclusion."
-
-        return result
