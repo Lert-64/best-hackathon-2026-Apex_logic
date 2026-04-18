@@ -6,11 +6,17 @@ from sqlalchemy import select
 
 from app.backend.dependencies import db_dep, require_role
 from app.core.config import settings
-from app.models.anomaly_model import Anomalies, AnomalyStatus, AnomalyZone
+from app.models.anomaly_model import Anomalies, AnomalyStatus
 from app.models.audit_log_model import AuditLogs
 from app.models.land_model import LandRecords
 from app.models.user_model import UserRole
-from app.schemas.anomaly_schemas import AnomalyResponse, AnomalyStatsResponse, InspectorReportSubmit, TakeTaskResponse
+from app.schemas.anomaly_schemas import (
+    AdminDecisionSubmit,
+    AnomalyResponse,
+    AnomalyStatsResponse,
+    InspectorReportSubmit,
+    TakeTaskResponse,
+)
 
 router = APIRouter(prefix="/api/anomalies", tags=["Anomalies"])
 
@@ -39,6 +45,7 @@ async def _to_response(anomaly: Anomalies, db: db_dep) -> AnomalyResponse:
         potential_loss_uah=float(anomaly.potential_loss_uah) if anomaly.potential_loss_uah is not None else None,
         risk_score=anomaly.risk_score,
         ai_summary=anomaly.ai_summary,
+        ai_decision_confidence=anomaly.ai_decision_confidence,
         status=anomaly.status,
         volunteer_id=anomaly.volunteer_id,
         volunteer_photo_url=volunteer_photo_url,
@@ -79,12 +86,63 @@ async def get_anomaly_stats(
 
     return AnomalyStatsResponse(
         total=len(statuses),
+        pending_admin=sum(1 for status in statuses if status == AnomalyStatus.PENDING_ADMIN),
         new=sum(1 for status in statuses if status == AnomalyStatus.NEW),
         in_work=sum(1 for status in statuses if status == AnomalyStatus.IN_WORK),
         pending_inspector=sum(1 for status in statuses if status == AnomalyStatus.PENDING_INSPECTOR),
         resolved=sum(1 for status in statuses if status == AnomalyStatus.RESOLVED),
         dismissed=sum(1 for status in statuses if status == AnomalyStatus.DISMISSED),
     )
+
+
+@router.get("/pending-admin", response_model=list[AnomalyResponse])
+async def list_pending_admin_review(
+    db: db_dep,
+    _=Depends(require_role(UserRole.ADMIN)),
+):
+    stmt = (
+        select(Anomalies)
+        .where(Anomalies.status == AnomalyStatus.PENDING_ADMIN)
+        .order_by(Anomalies.created_at.asc())
+    )
+    result = await db.execute(stmt)
+    anomalies = result.scalars().all()
+    return [await _to_response(anomaly, db) for anomaly in anomalies]
+
+
+@router.post("/{anomaly_id}/admin-decision", response_model=AnomalyResponse)
+async def submit_admin_decision(
+    anomaly_id: UUID,
+    payload: AdminDecisionSubmit,
+    db: db_dep,
+    current_user=Depends(require_role(UserRole.ADMIN)),
+):
+    async with db.begin():
+        stmt = select(Anomalies).where(Anomalies.lid == anomaly_id).with_for_update()
+        result = await db.execute(stmt)
+        anomaly = result.scalar_one_or_none()
+
+        if anomaly is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
+
+        if anomaly.status != AnomalyStatus.PENDING_ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Anomaly is not waiting for admin review",
+            )
+
+        if not payload.is_confirmed and not payload.reason:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="reason is required when anomaly is rejected",
+            )
+
+        anomaly.status = AnomalyStatus.NEW if payload.is_confirmed else AnomalyStatus.DISMISSED
+        reason = payload.reason or "Approved for volunteer pool"
+        action = "ADMIN_APPROVED" if payload.is_confirmed else "ADMIN_REJECTED"
+        db.add(_audit_log(anomaly.lid, reason, action, current_user.id))
+
+    return await _to_response(anomaly, db)
 
 
 @router.get("/pool", response_model=list[AnomalyResponse])
@@ -96,7 +154,6 @@ async def list_pool(
         select(Anomalies)
         .where(
             Anomalies.status == AnomalyStatus.NEW,
-            Anomalies.zone == AnomalyZone.RED,
         )
         .order_by(Anomalies.created_at.asc())
     )
@@ -134,7 +191,7 @@ async def take_task(
         if anomaly is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
 
-        if anomaly.status != AnomalyStatus.NEW or anomaly.zone != AnomalyZone.RED:
+        if anomaly.status != AnomalyStatus.NEW:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Task is not available in the pool",

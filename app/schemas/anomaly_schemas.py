@@ -14,6 +14,7 @@ class AnomalyResponse(BaseModel):
     potential_loss_uah: Optional[float] = None
     risk_score: Optional[int] = None
     ai_summary: Optional[str] = None
+    ai_decision_confidence: Optional[int] = None
     status: AnomalyStatus
     volunteer_id: Optional[UUID] = None
     volunteer_photo_url: Optional[str] = None
@@ -36,8 +37,14 @@ class InspectorReportSubmit(BaseModel):
     inspector_comment: Optional[str] = None
 
 
+class AdminDecisionSubmit(BaseModel):
+    is_confirmed: bool
+    reason: Optional[str] = None
+
+
 class AnomalyStatsResponse(BaseModel):
     total: int
+    pending_admin: int
     new: int
     in_work: int
     pending_inspector: int
