@@ -15,6 +15,7 @@ class AnomalyZone(str, enum.Enum):
 class AnomalyStatus(str, enum.Enum):
     NEW = "NEW"
     IN_WORK = "IN_WORK"
+    PENDING_INSPECTOR = "PENDING_INSPECTOR"
     RESOLVED = "RESOLVED"
     DISMISSED = "DISMISSED"
 
@@ -35,12 +36,17 @@ class Anomalies(Base):
     potential_loss_uah: Mapped[Decimal] = mapped_column(DECIMAL(15, 2))
     status: Mapped[AnomalyStatus] = mapped_column(SQLEnum(AnomalyStatus), default=AnomalyStatus.NEW)
 
+    volunteer_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    volunteer_photo_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    volunteer_comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     inspector_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
     inspector_instruction: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     inspector_comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     
-    land_record: Mapped["LandRecord"] = relationship()
-    real_estate_record: Mapped[Optional["RealEstateRecord"]] = relationship()
-    inspector: Mapped[Optional["User"]] = relationship()
+    land_record: Mapped["LandRecords"] = relationship()
+    real_estate_record: Mapped[Optional["RealEstateRecords"]] = relationship()
+    volunteer: Mapped[Optional["User"]] = relationship(foreign_keys=[volunteer_id])
+    inspector: Mapped[Optional["User"]] = relationship(foreign_keys=[inspector_id])

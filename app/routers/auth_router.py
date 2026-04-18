@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Form, HTTPException, status
 from sqlalchemy import select
-from app.backend.dependencies import db_dep, get_current_user
-from app.schemas.auth_schemas import LoginRequest, TokenResponse, RefreshTokenRequest, UserResponse
+from app.backend.dependencies import db_dep
+from app.schemas.auth_schemas import LoginRequest, TokenResponse, RefreshTokenRequest
 from app.models.user_model import User
 from app.backend.security import (
     verify_password,
@@ -14,12 +14,26 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(credentials: LoginRequest, db: db_dep):
-    stmt = select(User).filter(User.username == credentials.username)
+async def login(
+    db: db_dep,
+    credentials: LoginRequest | None = Body(default=None),
+    username: str | None = Form(default=None),
+    password: str | None = Form(default=None),
+):
+    resolved_username = credentials.username if credentials else username
+    resolved_password = credentials.password if credentials else password
+
+    if not resolved_username or not resolved_password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="username and password are required",
+        )
+
+    stmt = select(User).filter(User.username == resolved_username)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(credentials.password, user.password_hash):
+    if not user or not verify_password(resolved_password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"

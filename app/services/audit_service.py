@@ -4,6 +4,7 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.anomaly_model import Anomalies, AnomalyStatus, AnomalyZone
+from app.models.audit_log_model import AuditLogs
 from app.models.land_model import LandRecords
 from app.models.real_estate_model import RealEstateRecords
 
@@ -69,6 +70,17 @@ async def run_fuzzy_matching_audit(db: AsyncSession) -> list[Anomalies]:
 
     if anomalies_to_create:
         db.add_all(anomalies_to_create)
+
+        creation_logs = [
+            AuditLogs(
+                anomaly_id=anomaly.lid,
+                user_id=None,
+                action="NEW",
+                reason="Anomaly created by automated audit run",
+            )
+            for anomaly in anomalies_to_create
+        ]
+        db.add_all(creation_logs)
         await db.commit()
 
     return anomalies_to_create
