@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+pydantic-settings
+python-dotenv
+sqlalchemy>=2.0.0
+asyncpg
+alembic
+pandas
+openpyxl
+openai
+python-jose[cryptography]
+passlib[bcrypt]
+loguru
