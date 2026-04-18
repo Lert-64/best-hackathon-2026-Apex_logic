@@ -13,6 +13,7 @@ class AnomalyZone(str, enum.Enum):
     GREEN = "GREEN"
 
 class AnomalyStatus(str, enum.Enum):
+    PENDING_ADMIN = "PENDING_ADMIN"
     NEW = "NEW"
     IN_WORK = "IN_WORK"
     PENDING_INSPECTOR = "PENDING_INSPECTOR"
@@ -34,7 +35,7 @@ class Anomalies(Base):
     risk_score: Mapped[int] = mapped_column(Integer)
     ai_summary: Mapped[str] = mapped_column(Text)
     potential_loss_uah: Mapped[Decimal] = mapped_column(DECIMAL(15, 2))
-    status: Mapped[AnomalyStatus] = mapped_column(SQLEnum(AnomalyStatus), default=AnomalyStatus.NEW)
+    status: Mapped[AnomalyStatus] = mapped_column(SQLEnum(AnomalyStatus), default=AnomalyStatus.PENDING_ADMIN)
 
     volunteer_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
     volunteer_photo_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)

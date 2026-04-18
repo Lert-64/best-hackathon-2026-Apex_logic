@@ -7,10 +7,12 @@ from app.models.anomaly_model import Anomalies, AnomalyStatus, AnomalyZone
 from app.models.audit_log_model import AuditLogs
 from app.models.land_model import LandRecords
 from app.models.real_estate_model import RealEstateRecords
+from app.schemas.ai_schemas import AiAuditCandidate
+from app.services.ai_service import enrich_candidates_with_ai
 
 
-async def run_fuzzy_matching_audit(db: AsyncSession) -> list[Anomalies]:
-    """Run rule-based matching between land records and real estate records."""
+async def run_fuzzy_matching_audit(db: AsyncSession) -> tuple[list[Anomalies], bool]:
+    """Run matching audit between land records and real estate records with AI fallback."""
 
     # Enable trigram extension for similarity search in PostgreSQL.
     await db.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
@@ -19,6 +21,7 @@ async def run_fuzzy_matching_audit(db: AsyncSession) -> list[Anomalies]:
     lands = lands_result.scalars().all()
 
     anomalies_to_create: list[Anomalies] = []
+    ai_candidates: list[AiAuditCandidate] = []
 
     for land in lands:
         if not land.tax_id:
@@ -37,51 +40,64 @@ async def run_fuzzy_matching_audit(db: AsyncSession) -> list[Anomalies]:
         purpose = (land.purpose or "").lower()
         ownership = (land.ownership_type or "").lower()
 
-        if "комерц" in purpose and not matched_estate:
+        if matched_estate:
+            continue
+
+        if "komerc" in purpose or "комерц" in purpose:
             area = Decimal(land.area_ha or 0)
             valuation = Decimal(land.valuation or 0)
             loss = area * valuation * Decimal("0.03")
+            zone = AnomalyZone.RED
+            fallback_summary = "Created from fuzzy mismatch."
+        elif "komunal" in ownership or "комунал" in ownership:
+            loss = Decimal("0.00")
+            zone = AnomalyZone.GREEN
+            fallback_summary = "Created as community investment candidate."
+        else:
+            continue
 
-            anomalies_to_create.append(
-                Anomalies(
-                    zone=AnomalyZone.RED,
-                    tax_id=land.tax_id,
-                    land_id=land.lid,
-                    real_estate_id=None,
-                    risk_score=0,
-                    ai_summary="Auto-detected by fuzzy matching audit.",
-                    potential_loss_uah=loss,
-                    status=AnomalyStatus.NEW,
-                )
+        anomaly = Anomalies(
+            zone=zone,
+            tax_id=land.tax_id,
+            land_id=land.lid,
+            real_estate_id=None,
+            risk_score=0,
+            ai_summary=fallback_summary,
+            potential_loss_uah=loss,
+            status=AnomalyStatus.PENDING_ADMIN,
+        )
+        anomalies_to_create.append(anomaly)
+
+        ai_candidates.append(
+            AiAuditCandidate(
+                zone=zone.value,
+                tax_id=land.tax_id,
+                purpose=land.purpose,
+                ownership_type=land.ownership_type,
+                location=land.location,
+                potential_loss_uah=float(loss),
             )
-        elif "комунал" in ownership and not matched_estate:
-            anomalies_to_create.append(
-                Anomalies(
-                    zone=AnomalyZone.GREEN,
-                    tax_id=None,
-                    land_id=land.lid,
-                    real_estate_id=None,
-                    risk_score=0,
-                    ai_summary="Auto-detected investment opportunity.",
-                    potential_loss_uah=Decimal("0.00"),
-                    status=AnomalyStatus.NEW,
-                )
-            )
+        )
+
+    ai_result = await enrich_candidates_with_ai(ai_candidates, batch_size=5)
+    for anomaly, profile in zip(anomalies_to_create, ai_result.profiles):
+        anomaly.risk_score = profile.risk_score
+        anomaly.ai_summary = profile.ai_summary
 
     if anomalies_to_create:
         db.add_all(anomalies_to_create)
+        await db.flush()
 
         creation_logs = [
             AuditLogs(
                 anomaly_id=anomaly.lid,
                 user_id=None,
-                action="NEW",
-                reason="Anomaly created by automated audit run",
+                action="PENDING_ADMIN",
+                reason="Anomaly created by audit and sent to admin review",
             )
             for anomaly in anomalies_to_create
         ]
         db.add_all(creation_logs)
         await db.commit()
 
-    return anomalies_to_create
-
+    return anomalies_to_create, ai_result.used_remote_ai

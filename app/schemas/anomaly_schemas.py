@@ -36,8 +36,14 @@ class InspectorReportSubmit(BaseModel):
     inspector_comment: Optional[str] = None
 
 
+class AdminDecisionSubmit(BaseModel):
+    is_confirmed: bool
+    reason: Optional[str] = None
+
+
 class AnomalyStatsResponse(BaseModel):
     total: int
+    pending_admin: int
     new: int
     in_work: int
     pending_inspector: int
