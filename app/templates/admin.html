@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель Адміністратора | Межа</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        meza: {
+                            50: '#eef5ff',
+                            500: '#0057B7',
+                            700: '#003f8a'
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body class="bg-slate-100 text-slate-900 font-sans" x-data="dashboardData()">
+    <div x-show="isAuditing" x-cloak class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm grid place-content-center">
+        <div class="rounded-2xl bg-white px-8 py-6 border border-slate-200 text-center shadow-lg">
+            <svg class="w-10 h-10 animate-spin mx-auto text-meza-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <p class="mt-4 font-extrabold">Виконується аудит ШІ...</p>
+            <p class="text-xs text-slate-500 mt-1 uppercase tracking-widest">Fuzzy Matching Pipeline</p>
+        </div>
+    </div>
+
+    <div class="min-h-screen md:grid md:grid-cols-[260px_1fr]">
+        <aside class="hidden md:flex md:flex-col border-r border-slate-200 bg-white">
+            <div class="h-20 px-6 border-b border-slate-200 flex items-center gap-3">
+                <div class="h-9 w-9 rounded-xl bg-meza-500 text-white grid place-content-center font-black">M</div>
+                <div>
+                    <p class="font-extrabold leading-none">Межа</p>
+                    <p class="mt-1 text-[10px] uppercase tracking-[0.2em] text-meza-500 font-bold">Адміністратор</p>
+                </div>
+            </div>
+            <nav class="flex-1 p-4 space-y-2">
+                <button @click="activeView='dashboard'" :class="activeView==='dashboard' ? 'bg-meza-50 text-meza-500 border-meza-100' : 'text-slate-600 border-transparent'" class="w-full text-left px-4 py-3 rounded-xl border font-bold text-sm">Головна панель</button>
+                <button @click="activeView='audit'" :class="activeView==='audit' ? 'bg-meza-50 text-meza-500 border-meza-100' : 'text-slate-600 border-transparent'" class="w-full text-left px-4 py-3 rounded-xl border font-bold text-sm">Антикорупційні логи</button>
+            </nav>
+            <div class="p-4 border-t border-slate-200">
+                <a href="/login" class="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-bold text-sm grid place-content-center hover:text-red-600 hover:border-red-200">Вийти</a>
+            </div>
+        </aside>
+
+        <main>
+            <header class="h-16 md:h-20 border-b border-slate-200 bg-white/95 backdrop-blur px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black tracking-tight">Кадастровий моніторинг</h1>
+                    <p class="text-xs uppercase tracking-widest text-slate-400 font-bold mt-1">GovTech 2.0 Dashboard</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm font-bold">Олександр Адмін</p>
+                    <p class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">ID: admin_otg</p>
+                </div>
+            </header>
+
+            <div class="p-4 sm:p-6 lg:p-8 space-y-8">
+                <section x-show="activeView==='dashboard'" x-transition>
+                    <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400">Втрати бюджету</p>
+                            <p class="mt-3 text-3xl font-black text-red-600">1 450 200</p>
+                            <p class="text-xs font-semibold text-slate-500 mt-1">грн потенційно</p>
+                        </article>
+                        <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400">Порушення</p>
+                            <p class="mt-3 text-3xl font-black text-amber-500">42</p>
+                            <p class="text-xs font-semibold text-slate-500 mt-1">виявлених кейсів</p>
+                        </article>
+                        <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400">Зелена зона</p>
+                            <p class="mt-3 text-3xl font-black text-green-600">18</p>
+                            <p class="text-xs font-semibold text-slate-500 mt-1">інвест-активів</p>
+                        </article>
+                        <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400">В роботі</p>
+                            <p class="mt-3 text-3xl font-black text-meza-500">9</p>
+                            <p class="text-xs font-semibold text-slate-500 mt-1">польових перевірок</p>
+                        </article>
+                    </div>
+
+                    <div class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <h2 class="font-black text-lg">Запуск аудиту</h2>
+                        <p class="text-sm text-slate-500 mt-1">Оновіть виявлення аномалій по актуальним реєстрам.</p>
+                        <form
+                            class="mt-5 grid lg:grid-cols-[1fr_auto] gap-4 items-end"
+                            hx-post="/data/upload-registers"
+                            hx-encoding="multipart/form-data"
+                            hx-swap="none"
+                            @htmx:before-request="uploading = true; uploadFeedback = null"
+                            @htmx:after-request="handleUploadResponse($event)"
+                        >
+                            <div class="grid sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2">Земельний реєстр</label>
+                                    <input name="land_file" type="file" required class="block w-full rounded-xl border border-slate-300 bg-slate-50 text-sm p-2.5">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2">Реєстр нерухомості</label>
+                                    <input name="real_estate_file" type="file" required class="block w-full rounded-xl border border-slate-300 bg-slate-50 text-sm p-2.5">
+                                </div>
+                            </div>
+                            <button type="submit" :disabled="uploading" class="h-11 px-6 rounded-xl bg-slate-900 text-white font-extrabold hover:bg-black disabled:opacity-60 disabled:cursor-not-allowed">
+                                <span x-show="!uploading">Завантажити реєстри</span>
+                                <span x-show="uploading" x-cloak>Завантаження...</span>
+                            </button>
+                        </form>
+
+                        <div class="mt-4" x-show="uploadFeedback" x-cloak>
+                            <div
+                                class="rounded-xl border px-4 py-3 text-sm font-semibold"
+                                :class="uploadFeedback?.ok ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'"
+                                x-text="uploadFeedback?.message"
+                            ></div>
+                        </div>
+
+                        <div class="mt-4 flex flex-wrap items-center gap-3">
+                            <button
+                                hx-post="/data/run-audit"
+                                hx-swap="none"
+                                @htmx:before-request="startAudit()"
+                                @htmx:after-request="handleAuditResponse($event)"
+                                :disabled="isAuditing"
+                                class="h-11 px-6 rounded-xl bg-meza-500 text-white font-extrabold hover:bg-meza-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                <span x-show="!isAuditing">Аудит ШІ</span>
+                                <span x-show="isAuditing" x-cloak>Виконується...</span>
+                            </button>
+
+                            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider" x-show="uploadFeedback && uploadFeedback.ok" x-cloak>
+                                Після завантаження можна запускати порівняння
+                            </div>
+                        </div>
+
+                        <div class="mt-4" x-show="auditFeedback" x-cloak>
+                            <div
+                                class="rounded-xl border px-4 py-3 text-sm font-semibold"
+                                :class="auditFeedback?.ok ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-red-50 border-red-200 text-red-700'"
+                                x-text="auditFeedback?.message"
+                            ></div>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" x-data="{ tab: 'red' }">
+                        <div class="p-3 border-b border-slate-200 bg-slate-50 flex gap-2">
+                            <button @click="tab='red'" :class="tab==='red' ? 'bg-white text-red-600 border-red-100' : 'text-slate-500'" class="h-10 px-4 rounded-lg border font-bold text-sm">Червона зона</button>
+                            <button @click="tab='green'" :class="tab==='green' ? 'bg-white text-green-600 border-green-100' : 'text-slate-500'" class="h-10 px-4 rounded-lg border font-bold text-sm">Зелена зона</button>
+                        </div>
+
+                        <div x-show="tab==='red'" class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="text-[10px] uppercase tracking-widest text-slate-400 font-black bg-white border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-5 py-4 text-left">Кадастровий №</th>
+                                        <th class="px-5 py-4 text-left">Власник</th>
+                                        <th class="px-5 py-4 text-center">Ризик</th>
+                                        <th class="px-5 py-4 text-center">Статус</th>
+                                        <th class="px-5 py-4 text-right">Втрати</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <tr>
+                                        <td class="px-5 py-4 font-mono font-bold">4610136300:05:014:0021</td>
+                                        <td class="px-5 py-4">ТОВ Агроінвест</td>
+                                        <td class="px-5 py-4 text-center"><span class="px-2 py-1 rounded-lg text-xs font-black bg-red-100 text-red-700">92%</span></td>
+                                        <td class="px-5 py-4 text-center"><span class="px-2 py-1 rounded text-[10px] uppercase font-black bg-amber-100 text-amber-700">Очікування</span></td>
+                                        <td class="px-5 py-4 text-right font-mono font-bold">125 400 ₴</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div x-show="tab==='green'" x-cloak class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="text-[10px] uppercase tracking-widest text-slate-400 font-black bg-white border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-5 py-4 text-left">Кадастровий №</th>
+                                        <th class="px-5 py-4 text-right">Площа (га)</th>
+                                        <th class="px-5 py-4 text-left">Цільове призначення</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <tr>
+                                        <td class="px-5 py-4 font-mono font-bold">4610136900:02:001:0011</td>
+                                        <td class="px-5 py-4 text-right font-mono font-bold">2.4500</td>
+                                        <td class="px-5 py-4"><span class="px-2.5 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 text-xs font-bold">Комерційне використання</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section x-show="activeView==='audit'" x-cloak x-transition>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <h2 class="text-lg font-black">Антикорупційний журнал</h2>
+                        <p class="text-sm text-slate-500 mt-1">Лог рішень та дій усіх ролей системи.</p>
+                        <div class="mt-5 overflow-x-auto border border-slate-200 rounded-xl">
+                            <table class="w-full text-sm">
+                                <thead class="text-[10px] uppercase tracking-widest font-black text-slate-400 bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-5 py-4 text-left">Час (UTC)</th>
+                                        <th class="px-5 py-4 text-left">Користувач</th>
+                                        <th class="px-5 py-4 text-left">Дія</th>
+                                        <th class="px-5 py-4 text-left">Обґрунтування</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <tr>
+                                        <td class="px-5 py-4 font-mono text-xs">2026-04-18 14:32:11</td>
+                                        <td class="px-5 py-4 font-bold">user_uuid_42</td>
+                                        <td class="px-5 py-4"><span class="px-2 py-1 rounded border border-slate-200 bg-slate-100 font-mono text-xs font-bold">INSPECTOR_CONFIRMED</span></td>
+                                        <td class="px-5 py-4 text-slate-600 italic">Inspector approved volunteer report</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-5 py-4 font-mono text-xs">2026-04-18 13:10:05</td>
+                                        <td class="px-5 py-4 font-bold">vol_uuid_15</td>
+                                        <td class="px-5 py-4"><span class="px-2 py-1 rounded border border-slate-200 bg-slate-100 font-mono text-xs font-bold">VOLUNTEER_SUBMIT</span></td>
+                                        <td class="px-5 py-4 text-slate-600 italic">Volunteer report submitted</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function dashboardData() {
+            return {
+                activeView: 'dashboard',
+                isAuditing: false,
+                uploading: false,
+                uploadFeedback: null,
+                auditFeedback: null,
+                startAudit() {
+                    this.isAuditing = true;
+                    this.auditFeedback = null;
+                },
+                handleUploadResponse(event) {
+                    this.uploading = false;
+
+                    let payload = null;
+                    try {
+                        payload = JSON.parse(event.detail.xhr.responseText || '{}');
+                    } catch {
+                        payload = null;
+                    }
+
+                    if (event.detail.successful && payload) {
+                        this.uploadFeedback = {
+                            ok: true,
+                            message: `Реєстри завантажено успішно: земля ${payload.land_rows || 0}, нерухомість ${payload.real_estate_rows || 0}.`
+                        };
+                        return;
+                    }
+
+                    const errorDetail = payload && payload.detail ? payload.detail : 'Не вдалося завантажити файли. Перевірте формат CSV/XLSX та колонки.';
+                    this.uploadFeedback = {
+                        ok: false,
+                        message: `Помилка завантаження: ${errorDetail}`
+                    };
+                },
+                handleAuditResponse(event) {
+                    this.isAuditing = false;
+
+                    let payload = null;
+                    try {
+                        payload = JSON.parse(event.detail.xhr.responseText || '{}');
+                    } catch {
+                        payload = null;
+                    }
+
+                    if (event.detail.successful && payload) {
+                        this.auditFeedback = {
+                            ok: true,
+                            message: `Аудит завершено: створено ${payload.created || 0} аномалій (RED: ${payload.red || 0}, GREEN: ${payload.green || 0}).`
+                        };
+                        return;
+                    }
+
+                    const errorDetail = payload && payload.detail ? payload.detail : 'Не вдалося виконати аудит.';
+                    this.auditFeedback = {
+                        ok: false,
+                        message: `Помилка аудиту: ${errorDetail}`
+                    };
+                }
+            };
+        }
+    </script>
+</body>
+</html>

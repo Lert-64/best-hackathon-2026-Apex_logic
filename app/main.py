@@ -39,19 +39,42 @@ app.mount("/media", StaticFiles(directory=str(media_root)), name="media")
 templates = Jinja2Templates(directory="app/templates")
 
 app.include_router(api_router)
-
 @app.get("/", tags=["UI"])
 async def read_root(request: Request):
     return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={"request": request},
+        request=request,  # ОСЬ ЦЕЙ РЯДОК ОБОВ'ЯЗКОВИЙ
+        name="index.html", 
+        context={"request": request}
+    )
+
+@app.get("/login", tags=["UI"])
+async def login_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,  # ТУТ ТЕЖ
+        name="login.html", 
+        context={"request": request}
+    )
+
+@app.get("/admin", tags=["UI"])
+async def admin_page(request: Request):
+    return templates.TemplateResponse(
+        request=request, 
+        name="admin.html", 
+        context={"request": request}
+    )
+
+@app.get("/volunteer", tags=["UI"])
+async def volunteer_page(request: Request):
+    return templates.TemplateResponse(
+        request=request, 
+        name="activist.html", 
+        context={"request": request}
     )
 
 @app.get("/inspector", tags=["UI"])
 async def inspector_view(request: Request):
     return templates.TemplateResponse(
-        request=request,
-        name="inspector.html",
-        context={"request": request},
+        request=request, 
+        name="inspector.html", 
+        context={"request": request}
     )
