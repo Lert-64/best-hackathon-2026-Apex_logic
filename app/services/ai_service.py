@@ -84,15 +84,52 @@ def _adjust_confidence(candidate: AiAuditCandidate, base_confidence: int) -> int
     if candidate.purpose and candidate.ownership_type:
         confidence += 5
 
+    if candidate.owner_name_known is False:
+        confidence -= 18
+
     if candidate.zone == "RED" and candidate.potential_loss_uah is not None:
         confidence += 5
 
     return max(0, min(100, confidence))
 
 
+def _evidence_confidence(candidate: AiAuditCandidate) -> int:
+    evidence = 45
+    if candidate.tax_id:
+        evidence += 8
+    if candidate.location:
+        evidence += 7
+    if candidate.purpose:
+        evidence += 5
+    if candidate.ownership_type:
+        evidence += 5
+    if candidate.owner_name_known is False:
+        evidence -= 12
+
+    loss = candidate.potential_loss_uah or 0
+    if loss > 300000:
+        evidence += 10
+    elif loss > 100000:
+        evidence += 7
+    elif loss > 50000:
+        evidence += 4
+
+    if candidate.zone == "RED":
+        evidence -= 12
+
+    return max(35, min(90, evidence))
+
+
+def _calibrate_confidence(candidate: AiAuditCandidate, base_confidence: int) -> int:
+    adjusted = _adjust_confidence(candidate, base_confidence)
+    evidence = _evidence_confidence(candidate)
+    blended = round(adjusted * 0.55 + evidence * 0.45)
+    return max(35, min(92, blended))
+
+
 def _postprocess_profile(candidate: AiAuditCandidate, profile: AiAnomalyProfile) -> AiAnomalyProfile:
     boosted_risk = min(100, profile.risk_score + _apply_boost(candidate))
-    adjusted_confidence = _adjust_confidence(candidate, profile.decision_confidence)
+    adjusted_confidence = _calibrate_confidence(candidate, profile.decision_confidence)
 
     summary = (profile.ai_summary or "").strip()
     if not summary:

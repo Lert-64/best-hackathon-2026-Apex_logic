@@ -36,6 +36,9 @@ ESTATE_REQUIRED_COLUMNS = {
 
 MISSING_OWNERSHIP_SHARE_FALLBACK = "UNKNOWN"
 MISSING_OWNER_NAME_FALLBACK = "UNKNOWN_OWNER"
+MISSING_RECORD_NUMBER_PREFIX = "AUTO-REC"
+MISSING_TEXT_FALLBACK = "UNKNOWN"
+MISSING_REG_DATE_FALLBACK = date(1900, 1, 1)
 
 LAND_COLUMN_ALIASES = {
     "cadastral_number": "cadastral_number",
@@ -83,6 +86,8 @@ LAND_COLUMN_ALIASES = {
     "nomer_zapysu": "record_number",
     "nomer_zapysu_pro_pravo": "record_number",
     "nomer_zapysu_pro_prava": "record_number",
+    "nomer_zapysu_pro_pravo_vlasnosti": "record_number",
+    "nomer_zapysu_pro_prava_vlasnosti": "record_number",
     "reg_authority": "reg_authority",
     "organ_reiestracii": "reg_authority",
     "organ_reyestratsii": "reg_authority",
@@ -118,6 +123,7 @@ ESTATE_COLUMN_ALIASES = {
     "adresa": "address",
     "adres": "address",
     "adresa_obiekta": "address",
+    "adresa_ob_yekta": "address",
     "adresa_ob_iekta": "address",
     "total_area_sqm": "total_area_sqm",
     "zahalna_ploshcha_kv_m": "total_area_sqm",
@@ -279,6 +285,8 @@ def _to_decimal(value: Any, field: str, required: bool = False) -> Decimal | Non
     try:
         return Decimal(str(value))
     except (InvalidOperation, ValueError) as exc:
+        if not required:
+            return None
         raise ValueError(f"Invalid numeric value for '{field}': {value}") from exc
 
 
@@ -290,8 +298,17 @@ def _to_date(value: Any, field: str, required: bool = False) -> date | None:
         return None
     parsed = pd.to_datetime(value, errors="coerce")
     if pd.isna(parsed):
+        if not required:
+            return None
         raise ValueError(f"Invalid date value for '{field}': {value}")
     return parsed.date()
+
+
+def _inject_missing_columns(df: pd.DataFrame, expected_columns: set[str]) -> pd.DataFrame:
+    for column in expected_columns:
+        if column not in df.columns:
+            df[column] = None
+    return df
 
 
 async def _read_table(file: UploadFile) -> pd.DataFrame:
@@ -350,26 +367,29 @@ async def import_registers(
     land_df = _canonicalize_columns(land_df, LAND_COLUMN_ALIASES)
     estate_df = _canonicalize_columns(estate_df, ESTATE_COLUMN_ALIASES)
 
+    land_df = _inject_missing_columns(land_df, LAND_REQUIRED_COLUMNS)
+    estate_df = _inject_missing_columns(estate_df, ESTATE_REQUIRED_COLUMNS)
+
     # Estate files may come with address-like headers that heuristics map to "location".
     if "address" not in estate_df.columns and "location" in estate_df.columns:
         estate_df = estate_df.rename(columns={"location": "address"})
 
-    _ensure_columns(land_df, LAND_REQUIRED_COLUMNS, land_file.filename)
-    _ensure_columns(estate_df, ESTATE_REQUIRED_COLUMNS, real_estate_file.filename)
-
     try:
         land_records: list[LandRecords] = []
         for index, row in enumerate(land_df.to_dict(orient="records"), start=1):
-            record_number = _to_str(row.get("record_number"), "record_number", required=True)
+            # Some source exports contain blank record numbers in individual rows.
+            record_number = _to_str(row.get("record_number"), "record_number", required=False) or (
+                f"{MISSING_RECORD_NUMBER_PREFIX}-{index:06d}"
+            )
             land_records.append(
                 LandRecords(
                     cadastral_number=(
                         _to_str(row.get("cadastral_number"), "cadastral_number") or f"AUTO-LAND-{record_number}-{index}"
                     ),
-                    koatuu=_to_str(row.get("koatuu"), "koatuu") or "UNKNOWN",
-                    ownership_type=_to_str(row.get("ownership_type"), "ownership_type") or "UNKNOWN",
-                    purpose=_to_str(row.get("purpose"), "purpose") or "UNKNOWN",
-                    location=_to_str(row.get("location"), "location") or "UNKNOWN",
+                    koatuu=_to_str(row.get("koatuu"), "koatuu") or MISSING_TEXT_FALLBACK,
+                    ownership_type=_to_str(row.get("ownership_type"), "ownership_type") or MISSING_TEXT_FALLBACK,
+                    purpose=_to_str(row.get("purpose"), "purpose") or MISSING_TEXT_FALLBACK,
+                    location=_to_str(row.get("location"), "location") or MISSING_TEXT_FALLBACK,
                     agri_type=_to_str(row.get("agri_type"), "agri_type"),
                     area_ha=_to_decimal(row.get("area_ha"), "area_ha") or Decimal("0"),
                     valuation=_to_decimal(row.get("valuation"), "valuation") or Decimal("0"),
@@ -380,10 +400,11 @@ async def import_registers(
                         _to_str(row.get("ownership_share"), "ownership_share", required=False)
                         or MISSING_OWNERSHIP_SHARE_FALLBACK
                     ),
-                    reg_date=_to_date(row.get("reg_date"), "reg_date", required=True),
+                    reg_date=_to_date(row.get("reg_date"), "reg_date", required=False) or MISSING_REG_DATE_FALLBACK,
                     record_number=record_number,
-                    reg_authority=_to_str(row.get("reg_authority"), "reg_authority", required=True),
-                    doc_type=_to_str(row.get("doc_type"), "doc_type", required=True),
+                    reg_authority=_to_str(row.get("reg_authority"), "reg_authority", required=False)
+                    or MISSING_TEXT_FALLBACK,
+                    doc_type=_to_str(row.get("doc_type"), "doc_type", required=False) or MISSING_TEXT_FALLBACK,
                     doc_subtype=_to_str(row.get("doc_subtype"), "doc_subtype"),
                 )
             )
@@ -396,12 +417,13 @@ async def import_registers(
                     tax_id=estate_tax_id,
                     owner_name=_to_str(row.get("owner_name"), "owner_name", required=False)
                     or MISSING_OWNER_NAME_FALLBACK,
-                    object_type=_to_str(row.get("object_type"), "object_type", required=True),
-                    address=_to_str(row.get("address"), "address", required=True),
+                    object_type=_to_str(row.get("object_type"), "object_type", required=False) or MISSING_TEXT_FALLBACK,
+                    address=_to_str(row.get("address"), "address", required=False) or MISSING_TEXT_FALLBACK,
                     cadastral_number=_to_str(row.get("cadastral_number"), "cadastral_number"),
                     reg_date=_to_date(row.get("reg_date"), "reg_date"),
                     termination_date=_to_date(row.get("termination_date"), "termination_date"),
-                    total_area_sqm=_to_decimal(row.get("total_area_sqm"), "total_area_sqm", required=True),
+                    total_area_sqm=_to_decimal(row.get("total_area_sqm"), "total_area_sqm", required=False)
+                    or Decimal("0"),
                     joint_ownership_type=_to_str(row.get("joint_ownership_type"), "joint_ownership_type"),
                     ownership_share=_to_str(row.get("ownership_share"), "ownership_share"),
                 )

@@ -6,6 +6,7 @@ class AiAuditCandidate(BaseModel):
     tax_id: str | None = None
     purpose: str | None = None
     ownership_type: str | None = None
+    owner_name_known: bool | None = None
     location: str | None = None
     potential_loss_uah: float | None = None
 

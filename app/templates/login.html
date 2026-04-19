@@ -111,12 +111,13 @@
                 handleResponse(event) {
                     this.loading = false;
 
-                    if (event.detail.successful) {
+                    const statusCode = event?.detail?.xhr?.status ?? 0;
+                    if (statusCode >= 200 && statusCode < 400) {
                         return;
                     }
 
                     try {
-                        const payload = JSON.parse(event.detail.xhr.responseText || '{}');
+                        const payload = JSON.parse(event?.detail?.xhr?.responseText || '{}');
                         this.error = payload.detail || 'Помилка авторизації. Перевірте логін та пароль.';
                     } catch {
                         this.error = 'Помилка авторизації. Перевірте логін та пароль.';
