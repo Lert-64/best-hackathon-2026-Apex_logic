@@ -1,14 +1,12 @@
 <!DOCTYPE html>
-<html lang="uk" class="scroll-smooth">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель Адміністратора | Межа</title>
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -16,347 +14,229 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
-                        'meza-blue': '#0057B7',
-                        'meza-dark': '#003f8a',
-                        'charcoal': '#1e293b',
+                        meza: {
+                            50: '#eef5ff',
+                            500: '#0057B7',
+                            700: '#003f8a'
+                        }
                     }
                 }
             }
-        }
+        };
     </script>
-
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <style>
-        [x-cloak] { display: none !important; }
-        
-        body { 
-            background-color: #f8fafc;
-            background-image: linear-gradient(to right, #e2e8f0 1px, transparent 1px),
-                              linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
-            background-size: 40px 40px;
-            -webkit-font-smoothing: antialiased; 
-        }
-        
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-        .fade-in {
-            animation: fadeIn 0.4s ease-out forwards;
-            opacity: 0;
-            transform: translateY(10px);
-        }
-
-        @keyframes fadeIn {
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .glass-card {
-            background-color: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(12px);
-        }
-    </style>
 </head>
-<body x-data="dashboardData()" class="text-charcoal flex h-screen overflow-hidden">
-
-    <div x-show="isAuditing" x-cloak class="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center text-white">
-        <svg class="animate-spin h-14 w-14 text-meza-blue mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <h2 class="text-3xl font-extrabold tracking-tight mb-2">Проводиться аналіз ШІ...</h2>
-        <p class="text-slate-300 font-mono text-sm bg-black/30 px-4 py-2 rounded-lg">Fuzzy Matching & GPT-4o-mini Processing</p>
+<body class="bg-slate-100 text-slate-900 font-sans" x-data="dashboardData()">
+    <div x-show="isAuditing" x-cloak class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm grid place-content-center">
+        <div class="rounded-2xl bg-white px-8 py-6 border border-slate-200 text-center shadow-lg">
+            <svg class="w-10 h-10 animate-spin mx-auto text-meza-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <p class="mt-4 font-extrabold">Виконується аудит ШІ...</p>
+            <p class="text-xs text-slate-500 mt-1 uppercase tracking-widest">Fuzzy Matching Pipeline</p>
+        </div>
     </div>
 
-    <aside class="w-64 bg-white/90 backdrop-blur-sm border-r border-slate-200 flex flex-col hidden md:flex shrink-0 shadow-sm z-20">
-        <div class="h-20 flex items-center px-6 border-b border-slate-200">
-            <div class="w-8 h-8 bg-meza-blue text-white rounded-lg flex items-center justify-center font-black text-lg tracking-tighter shadow-sm mr-3">M</div>
-            <div class="flex flex-col">
-                <span class="font-bold text-[15px] leading-tight text-charcoal">Межа</span>
-                <span class="text-[10px] font-bold text-meza-blue uppercase tracking-widest leading-none">Адміністратор</span>
-            </div>
-        </div>
-        <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-2">
-            <a href="#" @click.prevent="activeView = 'dashboard'" :class="activeView === 'dashboard' ? 'bg-blue-50 text-meza-blue shadow-sm border border-blue-100' : 'text-slate-600 hover:bg-slate-50 border border-transparent'" class="px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-3 transition-all">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-                Головна панель
-            </a>
-            <a href="#" @click.prevent="activeView = 'audit'" :class="activeView === 'audit' ? 'bg-blue-50 text-meza-blue shadow-sm border border-blue-100' : 'text-slate-600 hover:bg-slate-50 border border-transparent'" class="px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-3 transition-all">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                Антикорупційні логи
-            </a>
-        </nav>
-        <div class="p-4 border-t border-slate-200">
-            <a href="login.html" class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-xl text-sm font-bold transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                Вийти з системи
-            </a>
-        </div>
-    </aside>
-
-    <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
-        <header class="h-20 bg-white/90 backdrop-blur-sm border-b border-slate-200 flex items-center justify-between px-8 shrink-0 z-10 shadow-sm">
-            <h1 class="text-2xl font-extrabold text-charcoal tracking-tight">Кадастровий аналіз</h1>
-            <div class="flex items-center gap-3">
-                <div class="text-right hidden sm:block">
-                    <p class="font-bold text-sm text-slate-900 leading-none">Олександр Адмін</p>
-                    <p class="text-[10px] text-slate-500 font-mono mt-1 uppercase tracking-widest">ID: admin_otg</p>
+    <div class="min-h-screen md:grid md:grid-cols-[260px_1fr]">
+        <aside class="hidden md:flex md:flex-col border-r border-slate-200 bg-white">
+            <div class="h-20 px-6 border-b border-slate-200 flex items-center gap-3">
+                <div class="h-9 w-9 rounded-xl bg-meza-500 text-white grid place-content-center font-black">M</div>
+                <div>
+                    <p class="font-extrabold leading-none">Межа</p>
+                    <p class="mt-1 text-[10px] uppercase tracking-[0.2em] text-meza-500 font-bold">Адміністратор</p>
                 </div>
-                <div class="w-10 h-10 rounded-xl bg-meza-blue/10 border border-meza-blue/20 flex items-center justify-center text-meza-blue font-black shadow-sm">A</div>
             </div>
-        </header>
+            <nav class="flex-1 p-4 space-y-2">
+                <button @click="activeView='dashboard'" :class="activeView==='dashboard' ? 'bg-meza-50 text-meza-500 border-meza-100' : 'text-slate-600 border-transparent'" class="w-full text-left px-4 py-3 rounded-xl border font-bold text-sm">Головна панель</button>
+                <button @click="activeView='audit'" :class="activeView==='audit' ? 'bg-meza-50 text-meza-500 border-meza-100' : 'text-slate-600 border-transparent'" class="w-full text-left px-4 py-3 rounded-xl border font-bold text-sm">Антикорупційні логи</button>
+            </nav>
+            <div class="p-4 border-t border-slate-200">
+                <a href="/login" class="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-bold text-sm grid place-content-center hover:text-red-600 hover:border-red-200">Вийти</a>
+            </div>
+        </aside>
 
-        <div class="flex-1 overflow-auto p-8 space-y-8">
-
-            <div x-show="activeView === 'dashboard'" x-transition:enter="fade-in" class="space-y-8">
-                
-                <div id="stats-container" hx-get="/api/anomalies/stats" hx-trigger="load" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="glass-card rounded-2xl border border-slate-200 p-6 shadow-sm relative overflow-hidden">
-                        <div class="absolute top-0 left-0 w-1.5 h-full bg-red-500"></div>
-                        <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Загальні втрати (грн)</p>
-                        <p class="text-3xl font-black text-slate-900 font-mono">1 450 200</p>
-                    </div>
-                    <div class="glass-card rounded-2xl border border-slate-200 p-6 shadow-sm relative overflow-hidden">
-                        <div class="absolute top-0 left-0 w-1.5 h-full bg-amber-500"></div>
-                        <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Кількість порушень</p>
-                        <p class="text-3xl font-black text-slate-900 font-mono">42</p>
-                    </div>
-                    <div class="glass-card rounded-2xl border border-slate-200 p-6 shadow-sm relative overflow-hidden">
-                        <div class="absolute top-0 left-0 w-1.5 h-full bg-green-500"></div>
-                        <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Вільні активи (Інвест)</p>
-                        <p class="text-3xl font-black text-slate-900 font-mono">18</p>
-                    </div>
+        <main>
+            <header class="h-16 md:h-20 border-b border-slate-200 bg-white/95 backdrop-blur px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black tracking-tight">Кадастровий моніторинг</h1>
+                    <p class="text-xs uppercase tracking-widest text-slate-400 font-bold mt-1">GovTech 2.0 Dashboard</p>
                 </div>
+                <div class="text-right">
+                    <p class="text-sm font-bold">Олександр Адмін</p>
+                    <p class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">ID: admin_otg</p>
+                </div>
+            </header>
 
-                <div class="glass-card rounded-2xl border border-slate-200 shadow-sm p-8">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-meza-blue">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        </div>
-                        <h2 class="text-lg font-bold text-slate-900">Завантаження та Аудит</h2>
+            <div class="p-4 sm:p-6 lg:p-8 space-y-8">
+                <section x-show="activeView==='dashboard'" x-transition>
+                    <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400">Втрати бюджету</p>
+                            <p class="mt-3 text-3xl font-black text-red-600">1 450 200</p>
+                            <p class="text-xs font-semibold text-slate-500 mt-1">грн потенційно</p>
+                        </article>
+                        <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400">Порушення</p>
+                            <p class="mt-3 text-3xl font-black text-amber-500">42</p>
+                            <p class="text-xs font-semibold text-slate-500 mt-1">виявлених кейсів</p>
+                        </article>
+                        <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400">Зелена зона</p>
+                            <p class="mt-3 text-3xl font-black text-green-600">18</p>
+                            <p class="text-xs font-semibold text-slate-500 mt-1">інвест-активів</p>
+                        </article>
+                        <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p class="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400">В роботі</p>
+                            <p class="mt-3 text-3xl font-black text-meza-500">9</p>
+                            <p class="text-xs font-semibold text-slate-500 mt-1">польових перевірок</p>
+                        </article>
                     </div>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                        <div class="lg:col-span-2">
-                            <form hx-post="/api/data/upload/land" enctype="multipart/form-data" class="space-y-2">
-                                <label class="block text-xs font-bold uppercase tracking-widest text-slate-500">Земельний реєстр (Excel)</label>
-                                <input type="file" name="file" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 border border-slate-200 rounded-lg cursor-pointer bg-white">
-                            </form>
-                        </div>
-                        <div class="lg:col-span-2">
-                            <form hx-post="/api/data/upload/real-estate" enctype="multipart/form-data" class="space-y-2">
-                                <label class="block text-xs font-bold uppercase tracking-widest text-slate-500">Реєстр нерухомості (Excel)</label>
-                                <input type="file" name="file" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 border border-slate-200 rounded-lg cursor-pointer bg-white">
-                            </form>
-                        </div>
-                        <div class="lg:col-span-1 flex items-end">
-                            <button hx-post="/api/data/run-audit" hx-swap="none" @click="startAudit()" class="w-full bg-meza-blue hover:bg-meza-dark text-white h-[46px] rounded-xl font-bold text-sm shadow-md shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                Аудит ШІ
+
+                    <div class="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <h2 class="font-black text-lg">Запуск аудиту</h2>
+                        <p class="text-sm text-slate-500 mt-1">Оновіть виявлення аномалій по актуальним реєстрам.</p>
+                        <form
+                            class="mt-5 grid lg:grid-cols-[1fr_auto] gap-4 items-end"
+                            hx-post="/data/upload-registers"
+                            hx-encoding="multipart/form-data"
+                            hx-swap="none"
+                            @htmx:before-request="uploading = true; uploadFeedback = null"
+                            @htmx:after-request="handleUploadResponse($event)"
+                        >
+                            <div class="grid sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2">Земельний реєстр</label>
+                                    <input name="land_file" type="file" required class="block w-full rounded-xl border border-slate-300 bg-slate-50 text-sm p-2.5">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2">Реєстр нерухомості</label>
+                                    <input name="real_estate_file" type="file" required class="block w-full rounded-xl border border-slate-300 bg-slate-50 text-sm p-2.5">
+                                </div>
+                            </div>
+                            <button type="submit" :disabled="uploading" class="h-11 px-6 rounded-xl bg-slate-900 text-white font-extrabold hover:bg-black disabled:opacity-60 disabled:cursor-not-allowed">
+                                <span x-show="!uploading">Завантажити реєстри</span>
+                                <span x-show="uploading" x-cloak>Завантаження...</span>
                             </button>
+                        </form>
+
+                        <div class="mt-4" x-show="uploadFeedback" x-cloak>
+                            <div
+                                class="rounded-xl border px-4 py-3 text-sm font-semibold"
+                                :class="uploadFeedback?.ok ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'"
+                                x-text="uploadFeedback?.message"
+                            ></div>
                         </div>
-                    </div>
-                </div>
 
-                <div x-data="{ activeTab: 'RED' }" class="glass-card rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                    <div class="flex border-b border-slate-200 bg-slate-50/50 px-4 pt-4 gap-2">
-                        <button @click="activeTab = 'RED'" :class="activeTab === 'RED' ? 'bg-white border-t border-l border-r border-slate-200 text-red-600 font-bold shadow-sm' : 'text-slate-500 hover:text-slate-700 font-semibold border border-transparent'" class="px-6 py-3.5 text-sm rounded-t-xl flex items-center gap-2 transition-all relative z-10 -mb-px">
-                            <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                            Червона зона (Порушення)
-                        </button>
-                        <button @click="activeTab = 'GREEN'" :class="activeTab === 'GREEN' ? 'bg-white border-t border-l border-r border-slate-200 text-green-600 font-bold shadow-sm' : 'text-slate-500 hover:text-slate-700 font-semibold border border-transparent'" class="px-6 py-3.5 text-sm rounded-t-xl flex items-center gap-2 transition-all relative z-10 -mb-px">
-                            <div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-                            Зелена зона (Активи)
-                        </button>
-                    </div>
-
-                    <div x-show="activeTab === 'RED'" class="overflow-x-auto">
-                        <table class="w-full text-left text-sm text-slate-600 whitespace-nowrap" hx-get="/api/anomalies?zone=RED" hx-trigger="revealed">
-                            <thead class="bg-white text-[11px] uppercase tracking-widest font-black text-slate-400 border-b border-slate-200">
-                                <tr>
-                                    <th class="px-6 py-5">Кадастровий №</th>
-                                    <th class="px-6 py-5">Власник / ІПН</th>
-                                    <th class="px-6 py-5 text-center">Ризик</th>
-                                    <th class="px-6 py-5 text-center">Статус</th>
-                                    <th class="px-6 py-5 text-right">Втрати (грн)</th>
-                                    <th class="px-6 py-5 text-center">Дії</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white">
-                                <tr class="hover:bg-slate-50 transition-colors group">
-                                    <td class="px-6 py-4 font-mono font-bold text-slate-900">4610136300:05:014:0021</td>
-                                    <td class="px-6 py-4">ТОВ "Агроінвест"<br><span class="text-xs text-slate-400 font-mono font-semibold">38291044</span></td>
-                                    <td class="px-6 py-4 text-center">
-                                        <span class="bg-red-100 text-red-700 text-xs font-black px-2.5 py-1 rounded-lg border border-red-200">92%</span>
-                                    </td>
-                                    <td class="px-6 py-4 text-center">
-                                        <span class="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Pending Inspector</span>
-                                    </td>
-                                    <td class="px-6 py-4 text-right font-mono font-black text-slate-900">125 400.00 ₴</td>
-                                    <td class="px-6 py-4 text-center">
-                                        <button @click="openDetails('4610136300:05:014:0021')" class="bg-white text-meza-blue hover:bg-meza-blue hover:text-white font-bold text-xs border border-meza-blue px-4 py-2 rounded-lg transition-all shadow-sm">Деталі</button>
-                                    </td>
-                                </tr>
-                                <tr class="hover:bg-slate-50 transition-colors group">
-                                    <td class="px-6 py-4 font-mono font-bold text-slate-900">4610136800:07:002:0105</td>
-                                    <td class="px-6 py-4">Іванов І.І.<br><span class="text-xs text-slate-400 font-mono font-semibold">2938475610</span></td>
-                                    <td class="px-6 py-4 text-center">
-                                        <span class="bg-orange-100 text-orange-700 text-xs font-black px-2.5 py-1 rounded-lg border border-orange-200">75%</span>
-                                    </td>
-                                    <td class="px-6 py-4 text-center">
-                                        <span class="bg-slate-100 text-slate-600 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">New (Пул)</span>
-                                    </td>
-                                    <td class="px-6 py-4 text-right font-mono font-black text-slate-900">45 200.00 ₴</td>
-                                    <td class="px-6 py-4 text-center">
-                                        <button @click="openDetails('4610136800:07:002:0105')" class="bg-white text-meza-blue hover:bg-meza-blue hover:text-white font-bold text-xs border border-meza-blue px-4 py-2 rounded-lg transition-all shadow-sm">Деталі</button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div x-show="activeTab === 'GREEN'" x-cloak class="overflow-x-auto">
-                        <table class="w-full text-left text-sm text-slate-600 whitespace-nowrap" hx-get="/api/anomalies?zone=GREEN" hx-trigger="revealed">
-                            <thead class="bg-white text-[11px] uppercase tracking-widest font-black text-slate-400 border-b border-slate-200">
-                                <tr>
-                                    <th class="px-6 py-5">Кадастровий №</th>
-                                    <th class="px-6 py-5 text-right">Площа (га)</th>
-                                    <th class="px-6 py-5">Цільове призначення</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white">
-                                <tr class="hover:bg-slate-50 transition-colors">
-                                    <td class="px-6 py-4 font-mono font-bold text-slate-900">4610136900:02:001:0011</td>
-                                    <td class="px-6 py-4 text-right font-mono font-bold text-slate-900">2.4500</td>
-                                    <td class="px-6 py-4"><span class="bg-green-50 text-green-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-green-200">Комерційне використання</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div x-show="activeView === 'audit'" x-cloak x-transition:enter="fade-in" class="space-y-6">
-                <div class="glass-card rounded-2xl border border-slate-200 shadow-sm p-8">
-                    <h2 class="text-xl font-extrabold text-slate-900 mb-2">Антикорупційний Журнал</h2>
-                    <p class="text-sm text-slate-500 mb-6">Фіксація дій волонтерів та рішень інспекторів-валідаторів.</p>
-                    
-                    <div class="overflow-x-auto border border-slate-200 rounded-xl bg-white">
-                        <table class="w-full text-left text-sm text-slate-600" hx-get="/api/audit-logs" hx-trigger="load">
-                            <thead class="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200">
-                                <tr>
-                                    <th class="px-6 py-4">Час (UTC)</th>
-                                    <th class="px-6 py-4">Користувач / Роль</th>
-                                    <th class="px-6 py-4">Дія (Action)</th>
-                                    <th class="px-6 py-4 w-1/2">Обґрунтування</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                <tr class="hover:bg-slate-50">
-                                    <td class="px-6 py-4 font-mono text-xs text-slate-500">2026-04-18 14:32:11</td>
-                                    <td class="px-6 py-4 font-bold text-slate-800">user_uuid_42<br><span class="text-[10px] text-green-600 font-black uppercase">Inspector</span></td>
-                                    <td class="px-6 py-4"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md font-mono text-xs font-bold border border-slate-200">INSPECTOR_CONFIRMED</span></td>
-                                    <td class="px-6 py-4 text-slate-600 italic">"Inspector approved volunteer report"</td>
-                                </tr>
-                                <tr class="hover:bg-slate-50">
-                                    <td class="px-6 py-4 font-mono text-xs text-slate-500">2026-04-18 13:10:05</td>
-                                    <td class="px-6 py-4 font-bold text-slate-800">vol_uuid_15<br><span class="text-[10px] text-amber-500 font-black uppercase">Volunteer</span></td>
-                                    <td class="px-6 py-4"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md font-mono text-xs font-bold border border-slate-200">VOLUNTEER_SUBMIT</span></td>
-                                    <td class="px-6 py-4 text-slate-600 italic">"Volunteer report submitted"</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div class="h-8"></div>
-        </div>
-    </main>
-
-    <div x-show="slideOverOpen" class="fixed inset-0 overflow-hidden z-50" x-cloak aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
-        <div class="absolute inset-0 overflow-hidden">
-            <div x-show="slideOverOpen" x-transition:enter="ease-in-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in-out duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" @click="closeDetails()"></div>
-
-            <div class="fixed inset-y-0 right-0 max-w-full flex">
-                <div x-show="slideOverOpen" x-transition:enter="transform transition ease-in-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transform transition ease-in-out duration-300" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full" class="w-screen max-w-md">
-                    
-                    <div class="h-full flex flex-col bg-white shadow-2xl border-l border-slate-200">
-                        <div class="px-6 py-6 border-b border-slate-200 bg-slate-50 flex items-start justify-between shrink-0">
-                            <div>
-                                <h2 class="text-xl font-extrabold text-slate-900" id="slide-over-title">Деталі Об'єкта</h2>
-                                <p class="text-sm font-mono font-bold text-meza-blue mt-1" x-text="currentObjectId"></p>
-                            </div>
-                            <button @click="closeDetails()" class="bg-white rounded-lg border border-slate-200 text-slate-400 hover:text-slate-900 p-2 focus:outline-none shadow-sm transition-colors">
-                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        <div class="mt-4 flex flex-wrap items-center gap-3">
+                            <button
+                                hx-post="/data/run-audit"
+                                hx-swap="none"
+                                @htmx:before-request="startAudit()"
+                                @htmx:after-request="handleAuditResponse($event)"
+                                :disabled="isAuditing"
+                                class="h-11 px-6 rounded-xl bg-meza-500 text-white font-extrabold hover:bg-meza-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                <span x-show="!isAuditing">Аудит ШІ</span>
+                                <span x-show="isAuditing" x-cloak>Виконується...</span>
                             </button>
+
+                            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider" x-show="uploadFeedback && uploadFeedback.ok" x-cloak>
+                                Після завантаження можна запускати порівняння
+                            </div>
                         </div>
 
-                        <div class="flex-1 overflow-y-auto p-6 space-y-8">
-                            
-                            <div>
-                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Деталі Реєстру</h3>
-                                <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-4 text-sm">
-                                    <div class="flex justify-between border-b border-slate-100 pb-3">
-                                        <span class="text-slate-500 font-medium">Власник:</span>
-                                        <span class="font-bold text-slate-900">ТОВ "Агроінвест"</span>
-                                    </div>
-                                    <div class="flex justify-between border-b border-slate-100 pb-3">
-                                        <span class="text-slate-500 font-medium">ІПН / ЄДРПОУ:</span>
-                                        <span class="font-mono font-bold text-slate-900">38291044</span>
-                                    </div>
-                                    <div class="flex justify-between border-b border-slate-100 pb-3">
-                                        <span class="text-slate-500 font-medium">Місцерозташування:</span>
-                                        <span class="font-semibold text-slate-900 text-right max-w-[60%]">вул. Промислова, 50, м.Львів</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-slate-500 font-medium">Втрати бюджету:</span>
-                                        <span class="font-mono font-black text-red-600">125 400.00 ₴</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Висновок Системи (ШІ)</h3>
-                                <div class="bg-blue-50 border border-blue-200 p-5 rounded-xl">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div class="flex items-center gap-2 text-meza-blue">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                            <span class="text-xs font-black uppercase tracking-wider">GPT-4o-mini</span>
-                                        </div>
-                                        <span class="bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded-md">Ризик: 92%</span>
-                                    </div>
-                                    <p class="text-sm text-slate-800 font-medium leading-relaxed">
-                                        "Задекларовано 0 кв.м нерухомості на ділянці 1.5 га (Комерція). Супутниковий знімок та адреса вказують на наявність функціонуючого складського приміщення."
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Статус опрацювання</h3>
-                                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
-                                    <span class="text-sm font-bold text-amber-800">Передано інспектору</span>
-                                    <span class="bg-amber-500 text-white text-[10px] font-black px-2.5 py-1 rounded uppercase tracking-widest shadow-sm">PENDING</span>
-                                </div>
-                                <p class="text-xs text-slate-500 mt-2 px-1">Очікується юридичне рішення від інспектора-валідатора щодо поданих волонтером фотодоказів.</p>
-                            </div>
-
-                            <div>
-                                <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Просторові дані</h3>
-                                <div id="map-container" class="h-[250px] w-full bg-slate-100 border border-slate-200 rounded-xl z-0 relative overflow-hidden"></div>
-                            </div>
-
+                        <div class="mt-4" x-show="auditFeedback" x-cloak>
+                            <div
+                                class="rounded-xl border px-4 py-3 text-sm font-semibold"
+                                :class="auditFeedback?.ok ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-red-50 border-red-200 text-red-700'"
+                                x-text="auditFeedback?.message"
+                            ></div>
                         </div>
                     </div>
-                </div>
+
+                    <div class="mt-8 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" x-data="{ tab: 'red' }">
+                        <div class="p-3 border-b border-slate-200 bg-slate-50 flex gap-2">
+                            <button @click="tab='red'" :class="tab==='red' ? 'bg-white text-red-600 border-red-100' : 'text-slate-500'" class="h-10 px-4 rounded-lg border font-bold text-sm">Червона зона</button>
+                            <button @click="tab='green'" :class="tab==='green' ? 'bg-white text-green-600 border-green-100' : 'text-slate-500'" class="h-10 px-4 rounded-lg border font-bold text-sm">Зелена зона</button>
+                        </div>
+
+                        <div x-show="tab==='red'" class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="text-[10px] uppercase tracking-widest text-slate-400 font-black bg-white border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-5 py-4 text-left">Кадастровий №</th>
+                                        <th class="px-5 py-4 text-left">Власник</th>
+                                        <th class="px-5 py-4 text-center">Ризик</th>
+                                        <th class="px-5 py-4 text-center">Статус</th>
+                                        <th class="px-5 py-4 text-right">Втрати</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <tr>
+                                        <td class="px-5 py-4 font-mono font-bold">4610136300:05:014:0021</td>
+                                        <td class="px-5 py-4">ТОВ Агроінвест</td>
+                                        <td class="px-5 py-4 text-center"><span class="px-2 py-1 rounded-lg text-xs font-black bg-red-100 text-red-700">92%</span></td>
+                                        <td class="px-5 py-4 text-center"><span class="px-2 py-1 rounded text-[10px] uppercase font-black bg-amber-100 text-amber-700">Очікування</span></td>
+                                        <td class="px-5 py-4 text-right font-mono font-bold">125 400 ₴</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div x-show="tab==='green'" x-cloak class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="text-[10px] uppercase tracking-widest text-slate-400 font-black bg-white border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-5 py-4 text-left">Кадастровий №</th>
+                                        <th class="px-5 py-4 text-right">Площа (га)</th>
+                                        <th class="px-5 py-4 text-left">Цільове призначення</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <tr>
+                                        <td class="px-5 py-4 font-mono font-bold">4610136900:02:001:0011</td>
+                                        <td class="px-5 py-4 text-right font-mono font-bold">2.4500</td>
+                                        <td class="px-5 py-4"><span class="px-2.5 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 text-xs font-bold">Комерційне використання</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section x-show="activeView==='audit'" x-cloak x-transition>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <h2 class="text-lg font-black">Антикорупційний журнал</h2>
+                        <p class="text-sm text-slate-500 mt-1">Лог рішень та дій усіх ролей системи.</p>
+                        <div class="mt-5 overflow-x-auto border border-slate-200 rounded-xl">
+                            <table class="w-full text-sm">
+                                <thead class="text-[10px] uppercase tracking-widest font-black text-slate-400 bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-5 py-4 text-left">Час (UTC)</th>
+                                        <th class="px-5 py-4 text-left">Користувач</th>
+                                        <th class="px-5 py-4 text-left">Дія</th>
+                                        <th class="px-5 py-4 text-left">Обґрунтування</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <tr>
+                                        <td class="px-5 py-4 font-mono text-xs">2026-04-18 14:32:11</td>
+                                        <td class="px-5 py-4 font-bold">user_uuid_42</td>
+                                        <td class="px-5 py-4"><span class="px-2 py-1 rounded border border-slate-200 bg-slate-100 font-mono text-xs font-bold">INSPECTOR_CONFIRMED</span></td>
+                                        <td class="px-5 py-4 text-slate-600 italic">Inspector approved volunteer report</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-5 py-4 font-mono text-xs">2026-04-18 13:10:05</td>
+                                        <td class="px-5 py-4 font-bold">vol_uuid_15</td>
+                                        <td class="px-5 py-4"><span class="px-2 py-1 rounded border border-slate-200 bg-slate-100 font-mono text-xs font-bold">VOLUNTEER_SUBMIT</span></td>
+                                        <td class="px-5 py-4 text-slate-600 italic">Volunteer report submitted</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
             </div>
-        </div>
+        </main>
     </div>
 
     <script>
@@ -364,43 +244,62 @@
             return {
                 activeView: 'dashboard',
                 isAuditing: false,
-                slideOverOpen: false,
-                currentObjectId: null,
-                mapInstance: null,
-                
+                uploading: false,
+                uploadFeedback: null,
+                auditFeedback: null,
                 startAudit() {
                     this.isAuditing = true;
-                    setTimeout(() => {
-                        this.isAuditing = false;
-                    }, 2000);
+                    this.auditFeedback = null;
                 },
+                handleUploadResponse(event) {
+                    this.uploading = false;
 
-                openDetails(id) {
-                    this.currentObjectId = id;
-                    this.slideOverOpen = true;
-                    
-                    setTimeout(() => {
-                        if (!this.mapInstance) {
-                            this.mapInstance = L.map('map-container').setView([49.8397, 24.0297], 14);
-                            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                                attribution: '&copy; OpenStreetMap'
-                            }).addTo(this.mapInstance);
-                            
-                            L.circleMarker([49.8397, 24.0297], {
-                                color: '#ef4444',
-                                fillColor: '#f87171',
-                                fillOpacity: 0.5,
-                                radius: 25
-                            }).addTo(this.mapInstance);
-                        }
-                        this.mapInstance.invalidateSize();
-                    }, 300);
+                    let payload = null;
+                    try {
+                        payload = JSON.parse(event.detail.xhr.responseText || '{}');
+                    } catch {
+                        payload = null;
+                    }
+
+                    if (event.detail.successful && payload) {
+                        this.uploadFeedback = {
+                            ok: true,
+                            message: `Реєстри завантажено успішно: земля ${payload.land_rows || 0}, нерухомість ${payload.real_estate_rows || 0}.`
+                        };
+                        return;
+                    }
+
+                    const errorDetail = payload && payload.detail ? payload.detail : 'Не вдалося завантажити файли. Перевірте формат CSV/XLSX та колонки.';
+                    this.uploadFeedback = {
+                        ok: false,
+                        message: `Помилка завантаження: ${errorDetail}`
+                    };
                 },
+                handleAuditResponse(event) {
+                    this.isAuditing = false;
 
-                closeDetails() {
-                    this.slideOverOpen = false;
+                    let payload = null;
+                    try {
+                        payload = JSON.parse(event.detail.xhr.responseText || '{}');
+                    } catch {
+                        payload = null;
+                    }
+
+                    if (event.detail.successful && payload) {
+                        this.auditFeedback = {
+                            ok: true,
+                            message: `Аудит завершено: створено ${payload.created || 0} аномалій (RED: ${payload.red || 0}, GREEN: ${payload.green || 0}).`
+                        };
+                        return;
+                    }
+
+                    const errorDetail = payload && payload.detail ? payload.detail : 'Не вдалося виконати аудит.';
+                    this.auditFeedback = {
+                        ok: false,
+                        message: `Помилка аудиту: ${errorDetail}`
+                    };
                 }
-            }
+            };
         }
     </script>
 </body>

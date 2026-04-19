@@ -4,10 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Термінал Волонтера | Межа</title>
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -16,209 +15,127 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
-                        'meza-blue': '#0057B7',
-                        'meza-dark': '#003f8a',
-                        'charcoal': '#1e293b',
+                        meza: {
+                            50: '#eef5ff',
+                            100: '#dbe9ff',
+                            500: '#0057B7',
+                            700: '#003f8a'
+                        }
                     }
                 }
             }
-        }
+        };
     </script>
-
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-
-    <style>
-        [x-cloak] { display: none !important; }
-        body { background-color: #f8fafc; -webkit-font-smoothing: antialiased; }
-        
-        .htmx-indicator { display: none; }
-        .htmx-request .htmx-indicator { display: inline-flex; }
-        .htmx-request .btn-text { display: none; }
-        
-        input, textarea, button { font-size: 16px !important; }
-    </style>
 </head>
-<body class="text-charcoal md:bg-slate-200 flex justify-center">
-
-    <div class="w-full max-w-md bg-slate-50 min-h-screen relative shadow-2xl md:border-x border-slate-200 flex flex-col" x-data="volunteerApp()">
-        
-        <header class="sticky top-0 z-50 bg-white border-b border-slate-200 px-4 h-16 flex items-center justify-between shadow-sm shrink-0">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-meza-blue text-white rounded-lg flex items-center justify-center font-black text-lg tracking-tighter shadow-sm">M</div>
-                <div class="flex flex-col">
-                    <span class="font-bold text-[15px] leading-tight text-charcoal">Межа</span>
-                    <span class="text-[10px] font-bold text-meza-blue uppercase tracking-widest leading-none">Термінал Волонтера</span>
+<body class="bg-slate-100 text-slate-900 font-sans">
+    <div class="mx-auto w-full max-w-md min-h-screen bg-white border-x border-slate-200 shadow-sm" x-data="volunteerApp()">
+        <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="h-9 w-9 rounded-xl bg-meza-500 text-white grid place-content-center font-black">M</div>
+                    <div>
+                        <p class="font-extrabold leading-none">Межа</p>
+                        <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-meza-500 mt-1">Термінал Волонтера</p>
+                    </div>
                 </div>
-            </div>
-            <button hx-post="/api/auth/logout" class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-            </button>
-        </header>
-
-        <div class="bg-white border-b border-slate-200 px-4 pt-3 pb-0 shrink-0 sticky top-16 z-40">
-            <div class="flex gap-4">
-                <button 
-                    @click="activeTab = 'pool'" 
-                    :class="activeTab === 'pool' ? 'border-meza-blue text-meza-blue' : 'border-transparent text-slate-500'"
-                    class="pb-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors flex-1"
+                <button
+                    hx-post="/api/auth/logout"
+                    hx-swap="none"
+                    class="h-10 w-10 rounded-full border border-slate-200 grid place-content-center text-slate-500 hover:text-red-600 hover:border-red-200"
+                    aria-label="Вийти"
                 >
-                    Вільні завдання
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                 </button>
-                <button 
-                    @click="activeTab = 'active'" 
-                    :class="activeTab === 'active' ? 'border-meza-blue text-meza-blue' : 'border-transparent text-slate-500'"
-                    class="pb-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-colors flex-1 relative"
+            </div>
+            <div class="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+                <button
+                    @click="activeTab='pool'"
+                    :class="activeTab === 'pool' ? 'bg-white text-meza-500 shadow-sm' : 'text-slate-500'"
+                    class="h-10 rounded-lg font-bold text-sm transition"
+                >Вільні завдання</button>
+                <button
+                    @click="activeTab='active'"
+                    :class="activeTab === 'active' ? 'bg-white text-meza-500 shadow-sm' : 'text-slate-500'"
+                    class="h-10 rounded-lg font-bold text-sm transition relative"
                 >
                     Мої задачі
-                    <span class="absolute top-0 right-2 w-2 h-2 bg-red-500 rounded-full" x-show="hasActiveTasks"></span>
+                    <span x-show="hasActiveTasks" x-cloak class="absolute top-2 right-3 h-2.5 w-2.5 rounded-full bg-red-500"></span>
                 </button>
             </div>
-        </div>
+        </header>
 
-        <main class="flex-1 overflow-y-auto p-4 pb-24">
-            
-            <div x-show="activeTab === 'pool'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
-                <div id="pool-list" hx-get="/api/anomalies/pool" hx-trigger="load">
-                    
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-4">
-                        <div class="p-4 border-b border-slate-100 flex justify-between items-start bg-slate-50">
-                            <div>
-                                <span class="bg-blue-100 text-meza-blue text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Нове</span>
-                                <p class="font-mono text-xs text-slate-500 mt-2">4610136300:05:014:0021</p>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-xs font-bold text-slate-400 uppercase">Ризик</span>
-                                <p class="text-lg font-black text-red-600 leading-none">92%</p>
-                            </div>
-                        </div>
-                        <div class="p-4">
-                            <h3 class="text-lg font-bold text-slate-900 mb-1">вул. Промислова, 50</h3>
-                            <p class="text-sm text-slate-600 mb-4 line-clamp-2">Підозра на незадеклароване комерційне приміщення на ділянці. Потрібна фотофіксація фасаду.</p>
-                            
-                            <button 
-                                hx-post="/api/anomalies/uuid-1/take"
-                                hx-target="closest div.bg-white"
-                                hx-swap="outerHTML"
-                                @click="takeTask($event)"
-                                class="w-full bg-slate-900 text-white py-3.5 rounded-lg font-bold text-sm hover:bg-black active:scale-[0.98] transition-all flex justify-center items-center gap-2"
-                            >
-                                <span class="btn-text">Взяти в роботу</span>
-                                <svg class="htmx-indicator animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            </button>
-                        </div>
+        <main class="p-4 pb-24">
+            <section x-show="activeTab === 'pool'" x-transition>
+                <div id="pool-list" hx-get="/api/anomalies/pool/html" hx-trigger="load">
+                    <div class="rounded-2xl border border-slate-200 p-4 animate-pulse">
+                        <div class="h-4 rounded bg-slate-200 w-2/3 mb-3"></div>
+                        <div class="h-3 rounded bg-slate-200 w-full mb-5"></div>
+                        <div class="h-11 rounded-xl bg-slate-200"></div>
                     </div>
-
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-4">
-                        <div class="p-4 border-b border-slate-100 flex justify-between items-start bg-slate-50">
-                            <div>
-                                <span class="bg-blue-100 text-meza-blue text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Нове</span>
-                                <p class="font-mono text-xs text-slate-500 mt-2">4610136800:07:002:0105</p>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-xs font-bold text-slate-400 uppercase">Ризик</span>
-                                <p class="text-lg font-black text-orange-500 leading-none">75%</p>
-                            </div>
-                        </div>
-                        <div class="p-4">
-                            <h3 class="text-lg font-bold text-slate-900 mb-1">вул. Зелена, 142</h3>
-                            <p class="text-sm text-slate-600 mb-4 line-clamp-2">Розбіжність площ. Перевірити наявність прибудов чи тимчасових споруд.</p>
-                            
-                            <button 
-                                hx-post="/api/anomalies/uuid-2/take"
-                                hx-target="closest div.bg-white"
-                                hx-swap="outerHTML"
-                                @click="takeTask($event)"
-                                class="w-full bg-slate-900 text-white py-3.5 rounded-lg font-bold text-sm hover:bg-black active:scale-[0.98] transition-all flex justify-center items-center gap-2"
-                            >
-                                <span class="btn-text">Взяти в роботу</span>
-                                <svg class="htmx-indicator animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            </button>
-                        </div>
-                    </div>
-
                 </div>
-            </div>
+            </section>
 
-            <div x-show="activeTab === 'active'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
-                
-                <div x-show="!hasActiveTasks" class="flex flex-col items-center justify-center pt-20 text-center px-4">
-                    <div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 mb-4">
-                        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+            <section x-show="activeTab === 'active'" x-cloak x-transition>
+                <div x-show="!hasActiveTasks" class="rounded-2xl border border-dashed border-slate-300 p-8 text-center">
+                    <div class="mx-auto h-14 w-14 rounded-full bg-slate-100 grid place-content-center text-slate-400 mb-4">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"></path></svg>
                     </div>
-                    <h3 class="text-lg font-bold text-slate-700 mb-1">У вас немає активних завдань</h3>
-                    <p class="text-sm text-slate-500">Перейдіть у вкладку "Вільні завдання", щоб взяти об'єкт в роботу.</p>
-                    <button @click="activeTab = 'pool'" class="mt-6 text-meza-blue font-bold text-sm bg-blue-50 px-6 py-2.5 rounded-full active:bg-blue-100 transition-colors">Перейти до пулу</button>
+                    <p class="font-bold text-slate-700">Наразі немає активної задачі</p>
+                    <p class="text-sm text-slate-500 mt-1">Перейдіть у вкладку «Вільні завдання» і візьміть об'єкт в роботу.</p>
                 </div>
 
-                <div x-show="hasActiveTasks" class="bg-white rounded-xl shadow-md border border-meza-blue/20 overflow-hidden mb-6 relative">
-                    <div class="absolute top-0 left-0 w-full h-1.5 bg-amber-400"></div>
-                    
-                    <div class="p-5 pt-6 border-b border-slate-100">
-                        <div class="flex justify-between items-start mb-2">
-                            <h2 class="text-2xl font-black text-charcoal leading-tight">вул. Шевченка, 112</h2>
-                            <a href="https://maps.google.com/?q=вул. Шевченка, 112" target="_blank" class="w-10 h-10 bg-slate-100 text-meza-blue rounded-full flex items-center justify-center shrink-0 active:bg-slate-200">
+                <div x-show="hasActiveTasks" x-cloak class="rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div class="h-1.5 bg-amber-400"></div>
+                    <div class="p-5 border-b border-slate-200 bg-slate-50">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-[10px] uppercase tracking-[0.2em] font-extrabold text-slate-400">Активний виїзд</p>
+                                <h2 class="mt-2 text-xl font-black" x-text="activeTask.location || 'Оберіть завдання в пулі'"></h2>
+                                <p class="mt-1 text-xs font-mono text-slate-500">Кадастр: <span x-text="activeTask.cadastral || '—'"></span></p>
+                            </div>
+                            <a :href="`https://maps.google.com/?q=${encodeURIComponent(activeTask.location || '')}`" target="_blank" class="h-10 w-10 rounded-full border border-slate-200 bg-white text-meza-500 grid place-content-center">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                             </a>
                         </div>
-                        <p class="font-mono text-xs text-slate-500">Кадастр: 4610136900:02:001:0011</p>
                     </div>
 
-                    <form 
-                        hx-post="/api/anomalies/uuid-active/volunteer-report" 
+                    <form
+                        class="p-5 space-y-5"
+                        :hx-post="activeTask.id ? `/api/anomalies/${activeTask.id}/volunteer-report` : ''"
+                        hx-swap="none"
                         enctype="multipart/form-data"
-                        hx-target="closest div.bg-white"
-                        hx-swap="outerHTML"
                         @submit="submitReport($event)"
-                        class="p-5 space-y-6"
+                        @htmx:after-request="handleReportResponse($event)"
                     >
                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Фото з місця події <span class="text-red-500">*</span></label>
-                            
-                            <div class="relative w-full h-48 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl overflow-hidden hover:bg-slate-100 transition-colors flex flex-col items-center justify-center cursor-pointer" @click="$refs.photoInput.click()">
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Фото з місця <span class="text-red-600">*</span></label>
+                            <div class="relative h-52 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 grid place-content-center overflow-hidden" @click="$refs.photoInput.click()">
                                 <template x-if="!photoPreview">
-                                    <div class="flex flex-col items-center text-slate-400">
-                                        <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                        <span class="text-sm font-semibold">Натисніть щоб зробити фото</span>
+                                    <div class="text-center text-slate-400">
+                                        <svg class="w-10 h-10 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                        <p class="text-sm font-semibold">Натисніть, щоб зробити або вибрати фото</p>
                                     </div>
                                 </template>
                                 <template x-if="photoPreview">
-                                    <img :src="photoPreview" class="absolute inset-0 w-full h-full object-cover">
+                                    <img :src="photoPreview" class="absolute inset-0 h-full w-full object-cover" alt="Фото з місця події">
                                 </template>
-                                <input type="file" name="file" accept="image/*" capture="environment" x-ref="photoInput" @change="handlePhotoUpload" class="hidden" required>
+                                <input type="file" name="photo" accept="image/*" capture="environment" class="hidden" x-ref="photoInput" @change="handlePhotoUpload" required>
                             </div>
-                            <template x-if="photoPreview">
-                                <button type="button" @click="photoPreview = null; $refs.photoInput.value = ''" class="mt-2 text-xs font-bold text-red-500 flex items-center gap-1">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Видалити фото
-                                </button>
-                            </template>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Коментар <span class="text-red-500">*</span></label>
-                            <textarea 
-                                name="volunteer_comment" 
-                                rows="3" 
-                                required
-                                class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-meza-blue focus:border-meza-blue shadow-sm bg-slate-50 focus:bg-white transition-all"
-                                placeholder="Опишіть, що ви бачите на ділянці..."
-                            ></textarea>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Коментар <span class="text-red-600">*</span></label>
+                            <textarea name="comment" rows="4" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-meza-500 focus:border-meza-500" placeholder="Опишіть, що ви бачите на ділянці..."></textarea>
                         </div>
 
-                        <button 
-                            type="submit" 
-                            class="w-full bg-meza-blue text-white min-h-[52px] rounded-xl font-bold text-[15px] tracking-wide hover:bg-meza-dark active:scale-[0.98] transition-all flex justify-center items-center shadow-md shadow-blue-900/20"
-                        >
-                            <span class="btn-text">Відправити на валідацію</span>
-                            <span class="htmx-indicator flex items-center gap-2">
-                                <svg class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                Відправка...
-                            </span>
+                        <button type="submit" class="w-full h-12 rounded-xl bg-meza-500 hover:bg-meza-700 text-white font-extrabold tracking-wide">
+                            Відправити на валідацію
                         </button>
                     </form>
                 </div>
-            </div>
-
+            </section>
         </main>
     </div>
 
@@ -226,33 +143,66 @@
         function volunteerApp() {
             return {
                 activeTab: 'pool',
-                hasActiveTasks: true, 
+                hasActiveTasks: false,
+                activeTask: { id: null, location: '', cadastral: '' },
+                pendingTask: null,
                 photoPreview: null,
 
                 handlePhotoUpload(event) {
                     const file = event.target.files[0];
-                    if (file) {
-                        this.photoPreview = URL.createObjectURL(file);
-                    }
+                    if (file) this.photoPreview = URL.createObjectURL(file);
                 },
 
                 takeTask(event) {
-                    setTimeout(() => {
-                        this.hasActiveTasks = true;
-                        this.activeTab = 'active';
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }, 500);
+                    const card = event.target.closest('[data-anomaly-id]');
+                    if (card) {
+                        this.pendingTask = {
+                            id: card.dataset.anomalyId,
+                            location: card.dataset.anomalyLocation || '',
+                            cadastral: card.dataset.anomalyCadastral || ''
+                        };
+                    }
+
+                    const response = event.detail?.xhr;
+                    const ok = response && response.status >= 200 && response.status < 300;
+                    if (!ok || !this.pendingTask) {
+                        alert('Не вдалося взяти задачу. Оновіть пул і спробуйте ще раз.');
+                        return;
+                    }
+
+                    this.activeTask = { ...this.pendingTask };
+                    this.pendingTask = null;
+                    this.hasActiveTasks = true;
+                    this.activeTab = 'active';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 },
 
                 submitReport(event) {
-                    setTimeout(() => {
-                        this.hasActiveTasks = false;
-                        this.activeTab = 'pool';
-                        this.photoPreview = null;
-                        alert("Звіт успішно надіслано інспектору!");
-                    }, 1000);
+                    if (!this.activeTask.id) {
+                        event.preventDefault();
+                        alert('Спочатку візьміть завдання з пулу.');
+                    }
+                },
+
+                handleReportResponse(event) {
+                    const response = event.detail?.xhr;
+                    const ok = response && response.status >= 200 && response.status < 300;
+                    if (!ok) {
+                        alert('Звіт не збережено. Перевірте фото та коментар.');
+                        return;
+                    }
+
+                    this.hasActiveTasks = false;
+                    this.activeTab = 'pool';
+                    this.activeTask = { id: null, location: '', cadastral: '' };
+                    this.pendingTask = null;
+                    this.photoPreview = null;
+                    if (window.htmx) {
+                        window.htmx.ajax('GET', '/api/anomalies/pool/html', '#pool-list');
+                    }
+                    alert('Звіт успішно надіслано інспектору.');
                 }
-            }
+            };
         }
     </script>
 </body>

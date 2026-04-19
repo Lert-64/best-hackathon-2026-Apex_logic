@@ -1,7 +1,9 @@
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 
 from app.backend.dependencies import db_dep, require_role
@@ -19,6 +21,8 @@ from app.schemas.anomaly_schemas import (
 )
 
 router = APIRouter(prefix="/api/anomalies", tags=["Anomalies"])
+
+templates = Jinja2Templates(directory="app/templates")
 
 MEDIA_ROOT = Path(settings.MEDIA_ROOT)
 VOLUNTEER_UPLOAD_DIR = MEDIA_ROOT / "volunteer_reports"
@@ -162,6 +166,25 @@ async def list_pool(
     return [await _to_response(anomaly, db) for anomaly in anomalies]
 
 
+@router.get("/pool/html", response_class=HTMLResponse)
+async def list_pool_html(request: Request, db: db_dep, _=Depends(require_role(UserRole.VOLUNTEER))):
+    stmt = (
+        select(Anomalies)
+        .where(
+            Anomalies.status == AnomalyStatus.NEW,
+        )
+        .order_by(Anomalies.created_at.asc())
+    )
+    result = await db.execute(stmt)
+    anomalies = result.scalars().all()
+    responses = [await _to_response(anomaly, db) for anomaly in anomalies]
+    return templates.TemplateResponse(
+        request=request,
+        name="pool_list.html",
+        context={"request": request, "anomalies": responses},
+    )
+
+
 @router.get("/pending-validation", response_model=list[AnomalyResponse])
 async def list_pending_validation(
     db: db_dep,
@@ -175,6 +198,23 @@ async def list_pending_validation(
     result = await db.execute(stmt)
     anomalies = result.scalars().all()
     return [await _to_response(anomaly, db) for anomaly in anomalies]
+
+
+@router.get("/pending-validation/html", response_class=HTMLResponse)
+async def list_pending_validation_html(request: Request, db: db_dep, _=Depends(require_role(UserRole.INSPECTOR))):
+    stmt = (
+        select(Anomalies)
+        .where(Anomalies.status == AnomalyStatus.PENDING_INSPECTOR)
+        .order_by(Anomalies.created_at.asc())
+    )
+    result = await db.execute(stmt)
+    anomalies = result.scalars().all()
+    responses = [await _to_response(anomaly, db) for anomaly in anomalies]
+    return templates.TemplateResponse(
+        request=request,
+        name="pending_validation_list.html",
+        context={"request": request, "anomalies": responses},
+    )
 
 
 @router.post("/{anomaly_id}/take", response_model=TakeTaskResponse)

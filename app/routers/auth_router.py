@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Body, Form, HTTPException, status
+from fastapi import APIRouter, Body, Form, HTTPException, status, Response
 from sqlalchemy import select
 from app.backend.dependencies import db_dep
 from app.schemas.auth_schemas import LoginRequest, TokenResponse, RefreshTokenRequest
-from app.models.user_model import User
+from app.models.user_model import User, UserRole
 from app.backend.security import (
     verify_password,
     create_access_token,
@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 @router.post("/login", response_model=TokenResponse)
 async def login(
     db: db_dep,
+    response: Response,
     credentials: LoginRequest | None = Body(default=None),
     username: str | None = Form(default=None),
     password: str | None = Form(default=None),
@@ -41,6 +42,23 @@ async def login(
 
     access_token = create_access_token(data={"sub": user.username})
     refresh_token = create_refresh_token(data={"sub": user.username})
+
+    target_url = "/login"
+    if user.role == UserRole.ADMIN:
+        target_url = "/admin"
+    elif user.role == UserRole.INSPECTOR:
+        target_url = "/inspector"
+    elif user.role == UserRole.VOLUNTEER:
+        target_url = "/volunteer"
+
+    response.headers["HX-Redirect"] = target_url
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        path="/",
+    )
 
     return TokenResponse(
         access_token=access_token,
@@ -84,7 +102,9 @@ async def get_refresh_token(req: RefreshTokenRequest, db: db_dep):
 
 
 @router.post("/logout")
-async def logout():
+async def logout(response: Response):
+    response.delete_cookie("access_token", path="/")
+    response.headers["HX-Redirect"] = "/login"
     return {"message": "Successfully logged out"}
 
 
