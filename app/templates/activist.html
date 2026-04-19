@@ -108,11 +108,8 @@
 
                     <form
                         class="p-5 space-y-5"
-                        :hx-post="activeTask.id ? `/api/anomalies/${activeTask.id}/volunteer-report` : ''"
-                        hx-swap="none"
                         enctype="multipart/form-data"
-                        @submit="submitReport($event)"
-                        @htmx:after-request="handleReportResponse($event)"
+                        x-ref="reportForm"
                     >
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-2">Фото з місця <span class="text-red-600">*</span></label>
@@ -136,7 +133,7 @@
                             <textarea name="comment" rows="4" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20 focus:border-slate-500" placeholder="Коротко опишіть фактичний стан на місці..."></textarea>
                         </div>
 
-                        <button type="submit" class="w-full h-12 rounded-xl bg-ink hover:bg-slate-900 text-white font-extrabold tracking-wide">
+                        <button type="button" @click="submitReport($refs.reportForm)" class="w-full h-12 rounded-xl bg-ink hover:bg-slate-900 text-white font-extrabold tracking-wide">
                             Відправити на валідацію
                         </button>
                     </form>
@@ -153,14 +150,17 @@
                 activeTask: { id: null, location: '', cadastral: '' },
                 pendingTask: null,
                 photoPreview: null,
+                takingTask: false,
+                sendingReport: false,
 
                 handlePhotoUpload(event) {
                     const file = event.target.files[0];
                     if (file) this.photoPreview = URL.createObjectURL(file);
                 },
 
-                takeTask(event) {
-                    const card = event.target.closest('[data-anomaly-id]');
+                setPendingTask(event) {
+                    const source = event.currentTarget || event.target;
+                    const card = source && source.closest ? source.closest('[data-anomaly-id]') : null;
                     if (card) {
                         this.pendingTask = {
                             id: card.dataset.anomalyId,
@@ -168,33 +168,100 @@
                             cadastral: card.dataset.anomalyCadastral || ''
                         };
                     }
+                },
 
-                    const response = event.detail?.xhr;
-                    const ok = response && response.status >= 200 && response.status < 300;
-                    if (!ok || !this.pendingTask) {
-                        alert('Не вдалося взяти задачу. Оновіть пул і спробуйте ще раз.');
+                async takeTaskFromPool(event) {
+                    this.setPendingTask(event);
+                    if (!this.pendingTask?.id || this.takingTask) {
                         return;
                     }
 
-                    this.activeTask = { ...this.pendingTask };
-                    this.pendingTask = null;
-                    this.hasActiveTasks = true;
-                    this.activeTab = 'active';
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                },
+                    this.takingTask = true;
+                    try {
+                        const response = await fetch(`/api/anomalies/${this.pendingTask.id}/take`, {
+                            method: 'POST',
+                            credentials: 'same-origin'
+                        });
 
-                submitReport(event) {
-                    if (!this.activeTask.id) {
-                        event.preventDefault();
-                        alert('Спочатку візьміть завдання з пулу.');
+                        const raw = await response.text();
+                        let payload = {};
+                        try {
+                            payload = raw ? JSON.parse(raw) : {};
+                        } catch {
+                            payload = {};
+                        }
+
+                        if (!response.ok || !this.pendingTask) {
+                            let detail = 'Не вдалося взяти задачу. Оновіть пул і спробуйте ще раз.';
+                            if (payload?.detail) {
+                                detail = Array.isArray(payload.detail) ? payload.detail.join('; ') : String(payload.detail);
+                            }
+
+                            alert(detail);
+                            if (window.htmx) {
+                                window.htmx.ajax('GET', '/api/anomalies/pool/html', '#pool-list');
+                            }
+                            return;
+                        }
+
+                        this.activeTask = { ...this.pendingTask };
+                        this.pendingTask = null;
+                        this.hasActiveTasks = true;
+                        this.activeTab = 'active';
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } finally {
+                        this.takingTask = false;
                     }
                 },
 
-                handleReportResponse(event) {
-                    const response = event.detail?.xhr;
-                    const ok = response && response.status >= 200 && response.status < 300;
-                    if (!ok) {
-                        alert('Звіт не збережено. Перевірте фото та коментар.');
+                async submitReport(form) {
+                    if (!this.activeTask.id) {
+                        alert('Спочатку візьміть завдання з пулу.');
+                        return;
+                    }
+
+                    if (this.sendingReport) {
+                        return;
+                    }
+
+                    if (!form) {
+                        return;
+                    }
+
+                    this.sendingReport = true;
+                    try {
+                        const response = await fetch(`/api/anomalies/${this.activeTask.id}/volunteer-report`, {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            body: new FormData(form)
+                        });
+
+                        const raw = await response.text();
+                        let payload = {};
+                        try {
+                            payload = raw ? JSON.parse(raw) : {};
+                        } catch {
+                            payload = {};
+                        }
+
+                        this.handleReportResponse({ ok: response.ok, payload });
+                        if (response.ok) {
+                            form.reset();
+                        }
+                    } finally {
+                        this.sendingReport = false;
+                    }
+                },
+
+                handleReportResponse(result) {
+                    if (!result?.ok) {
+                        let detail = 'Звіт не збережено. Перевірте фото та коментар.';
+                        if (result?.payload?.detail) {
+                            detail = Array.isArray(result.payload.detail)
+                                ? result.payload.detail.join('; ')
+                                : String(result.payload.detail);
+                        }
+                        alert(detail);
                         return;
                     }
 

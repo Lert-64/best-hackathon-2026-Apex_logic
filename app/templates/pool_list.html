@@ -19,9 +19,7 @@
         <p class="text-sm text-slate-600 mb-4 line-clamp-2">{{ a.ai_summary or 'Обʼєкт очікує польову верифікацію та фотофіксацію волонтером.' }}</p>
 
         <button
-            hx-post="/api/anomalies/{{ a.id }}/take"
-            hx-swap="none"
-            @htmx:after-request="takeTask($event)"
+            @click="takeTaskFromPool($event)"
             class="w-full bg-ink text-white py-3.5 rounded-xl font-extrabold text-sm hover:bg-slate-900 active:scale-[0.98] transition-all flex justify-center items-center gap-2"
         >
             <span class="btn-text">Взяти в роботу</span>

@@ -34,6 +34,8 @@ async def _to_response(anomaly: Anomalies, db: db_dep) -> AnomalyResponse:
     )
     land_result = await db.execute(land_stmt)
     owner_name, cadastral_number, location = land_result.one_or_none() or (None, "", None)
+    if owner_name and owner_name.strip().upper() == "UNKNOWN_OWNER":
+        owner_name = None
 
     volunteer_photo_url = None
     if anomaly.volunteer_photo_path:
@@ -121,30 +123,30 @@ async def submit_admin_decision(
     db: db_dep,
     current_user=Depends(require_role(UserRole.ADMIN)),
 ):
-    async with db.begin():
-        stmt = select(Anomalies).where(Anomalies.lid == anomaly_id).with_for_update()
-        result = await db.execute(stmt)
-        anomaly = result.scalar_one_or_none()
+    stmt = select(Anomalies).where(Anomalies.lid == anomaly_id).with_for_update()
+    result = await db.execute(stmt)
+    anomaly = result.scalar_one_or_none()
 
-        if anomaly is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
+    if anomaly is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
 
-        if anomaly.status != AnomalyStatus.PENDING_ADMIN:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Anomaly is not waiting for admin review",
-            )
+    if anomaly.status != AnomalyStatus.PENDING_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Anomaly is not waiting for admin review",
+        )
 
-        if not payload.is_confirmed and not payload.reason:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="reason is required when anomaly is rejected",
-            )
+    if not payload.is_confirmed and not payload.reason:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="reason is required when anomaly is rejected",
+        )
 
-        anomaly.status = AnomalyStatus.NEW if payload.is_confirmed else AnomalyStatus.DISMISSED
-        reason = payload.reason or "Approved for volunteer pool"
-        action = "ADMIN_APPROVED" if payload.is_confirmed else "ADMIN_REJECTED"
-        db.add(_audit_log(anomaly.lid, reason, action, current_user.id))
+    anomaly.status = AnomalyStatus.NEW if payload.is_confirmed else AnomalyStatus.DISMISSED
+    reason = payload.reason or "Approved for volunteer pool"
+    action = "ADMIN_APPROVED" if payload.is_confirmed else "ADMIN_REJECTED"
+    db.add(_audit_log(anomaly.lid, reason, action, current_user.id))
+    await db.commit()
 
     return await _to_response(anomaly, db)
 
@@ -229,24 +231,27 @@ async def take_task(
     db: db_dep,
     current_user=Depends(require_role(UserRole.VOLUNTEER)),
 ):
-    async with db.begin():
-        stmt = select(Anomalies).where(Anomalies.lid == anomaly_id).with_for_update()
-        result = await db.execute(stmt)
-        anomaly = result.scalar_one_or_none()
+    stmt = select(Anomalies).where(Anomalies.lid == anomaly_id).with_for_update()
+    result = await db.execute(stmt)
+    anomaly = result.scalar_one_or_none()
 
-        if anomaly is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
+    if anomaly is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
 
+    # Idempotent pickup: stale cards can retry while task is already assigned to the same volunteer.
+    if anomaly.status == AnomalyStatus.IN_WORK and anomaly.volunteer_id == current_user.id:
+        return TakeTaskResponse(anomaly_id=anomaly.lid, status=anomaly.status)
 
-        if anomaly.status not in {AnomalyStatus.NEW, AnomalyStatus.PENDING_ADMIN}:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Task is not available in the pool",
-            )
+    if anomaly.status not in {AnomalyStatus.NEW, AnomalyStatus.PENDING_ADMIN}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Task is not available in the pool",
+        )
 
-        anomaly.status = AnomalyStatus.IN_WORK
-        anomaly.volunteer_id = current_user.id
-        db.add(_audit_log(anomaly.lid, "Task taken by volunteer", "TAKEN", current_user.id))
+    anomaly.status = AnomalyStatus.IN_WORK
+    anomaly.volunteer_id = current_user.id
+    db.add(_audit_log(anomaly.lid, "Task taken by volunteer", "TAKEN", current_user.id))
+    await db.commit()
 
     return TakeTaskResponse(anomaly_id=anomaly.lid, status=anomaly.status)
 
@@ -274,25 +279,25 @@ async def submit_volunteer_report(
 
     relative_path = f"volunteer_reports/{file_name}"
 
-    async with db.begin():
-        stmt = select(Anomalies).where(Anomalies.lid == anomaly_id).with_for_update()
-        result = await db.execute(stmt)
-        anomaly = result.scalar_one_or_none()
+    stmt = select(Anomalies).where(Anomalies.lid == anomaly_id).with_for_update()
+    result = await db.execute(stmt)
+    anomaly = result.scalar_one_or_none()
 
-        if anomaly is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
+    if anomaly is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
 
-        if anomaly.status != AnomalyStatus.IN_WORK or anomaly.volunteer_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Only the assigned volunteer can submit a report for an in-work task",
-            )
+    if anomaly.status != AnomalyStatus.IN_WORK or anomaly.volunteer_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only the assigned volunteer can submit a report for an in-work task",
+        )
 
-        anomaly.volunteer_comment = comment
-        anomaly.volunteer_photo_path = relative_path
-        anomaly.status = AnomalyStatus.PENDING_INSPECTOR
+    anomaly.volunteer_comment = comment
+    anomaly.volunteer_photo_path = relative_path
+    anomaly.status = AnomalyStatus.PENDING_INSPECTOR
 
-        db.add(_audit_log(anomaly.lid, "Volunteer report submitted", "VOLUNTEER_SUBMIT", current_user.id))
+    db.add(_audit_log(anomaly.lid, "Volunteer report submitted", "VOLUNTEER_SUBMIT", current_user.id))
+    await db.commit()
 
     return await _to_response(anomaly, db)
 
@@ -300,37 +305,54 @@ async def submit_volunteer_report(
 @router.post("/{anomaly_id}/report", response_model=AnomalyResponse)
 async def submit_inspector_decision(
     anomaly_id: UUID,
+    request: Request,
     payload: InspectorReportSubmit,
     db: db_dep,
     current_user=Depends(require_role(UserRole.INSPECTOR)),
 ):
-    async with db.begin():
-        stmt = select(Anomalies).where(Anomalies.lid == anomaly_id).with_for_update()
+    stmt = select(Anomalies).where(Anomalies.lid == anomaly_id).with_for_update()
+    result = await db.execute(stmt)
+    anomaly = result.scalar_one_or_none()
+
+    if anomaly is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
+
+    if anomaly.status != AnomalyStatus.PENDING_INSPECTOR:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Anomaly is not waiting for inspector validation",
+        )
+
+    if not payload.is_confirmed and not payload.inspector_comment:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="inspector_comment is required when report is rejected",
+        )
+
+    anomaly.inspector_id = current_user.id
+    anomaly.inspector_comment = payload.inspector_comment
+    anomaly.status = AnomalyStatus.RESOLVED if payload.is_confirmed else AnomalyStatus.DISMISSED
+
+    action = "INSPECTOR_CONFIRMED" if payload.is_confirmed else "INSPECTOR_REJECTED"
+    reason = payload.inspector_comment or "Inspector approved volunteer report"
+    db.add(_audit_log(anomaly.lid, reason, action, current_user.id))
+    await db.commit()
+
+    # HTMX inspector flow expects HTML to re-render the queue container.
+    if request.headers.get("HX-Request") == "true":
+        stmt = (
+            select(Anomalies)
+            .where(Anomalies.status == AnomalyStatus.PENDING_INSPECTOR)
+            .order_by(Anomalies.created_at.asc())
+        )
         result = await db.execute(stmt)
-        anomaly = result.scalar_one_or_none()
-
-        if anomaly is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
-
-        if anomaly.status != AnomalyStatus.PENDING_INSPECTOR:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Anomaly is not waiting for inspector validation",
-            )
-
-        if not payload.is_confirmed and not payload.inspector_comment:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="inspector_comment is required when report is rejected",
-            )
-
-        anomaly.inspector_id = current_user.id
-        anomaly.inspector_comment = payload.inspector_comment
-        anomaly.status = AnomalyStatus.RESOLVED if payload.is_confirmed else AnomalyStatus.DISMISSED
-
-        action = "INSPECTOR_CONFIRMED" if payload.is_confirmed else "INSPECTOR_REJECTED"
-        reason = payload.inspector_comment or "Inspector approved volunteer report"
-        db.add(_audit_log(anomaly.lid, reason, action, current_user.id))
+        anomalies = result.scalars().all()
+        responses = [await _to_response(item, db) for item in anomalies]
+        return templates.TemplateResponse(
+            request=request,
+            name="pending_validation_list.html",
+            context={"request": request, "anomalies": responses},
+        )
 
     return await _to_response(anomaly, db)
 

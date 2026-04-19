@@ -19,7 +19,12 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["assetvision.org.ua", "*.assetvision.org.ua", "localhost", "127.0.0.1"]
+    allowed_hosts=[
+        "apex-logic.online",
+        "*.apex-logic.online",
+        "localhost",
+        "127.0.0.1"
+    ]
 )
 
 app.add_middleware(

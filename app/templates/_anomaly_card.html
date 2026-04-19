@@ -55,8 +55,8 @@
             <form
                 hx-post="/api/anomalies/{{ a.id }}/report"
                 hx-ext="json-enc"
-                hx-target="closest .task-card"
-                hx-swap="outerHTML swap:400ms"
+                hx-target="#validation-queue"
+                hx-swap="innerHTML"
                 x-data="{ comment: '', confirmed: null }"
                 @submit="if(confirmed === false && comment.trim() === '') { $event.preventDefault(); alert('Для відхилення звіту обов\'язково вкажіть причину в коментарі.'); }"
                 class="mt-auto space-y-5 bg-slate-50 p-6 rounded-2xl border border-slate-200"
