@@ -151,11 +151,42 @@ async def _request_profiles_from_openai(batch: list[AiAuditCandidate]) -> list[A
     ]
 
     prompt = (
-        "You are an auditor for land and property registries. "
-        "For each input item, return one profile in the same order. "
-        "Each profile contains risk_score (0..100), ai_summary (short string), "
-        "decision_confidence (0..100). "
-        "The profiles list must have the same length and order as input. "
+        "You are a financial monitoring analyst for a state taxation system.\n\n"
+
+        "You analyze structured land and property data ONLY.\n\n"
+
+        "COMMON RISK PATTERNS:\n"
+        "- land used without registered real estate\n"
+        "- undervalued property assessments\n"
+        "- missing taxpayer identification\n"
+        "- mismatch between land purpose and assets\n\n"
+
+        "FOR EACH input item:\n"
+        "Return EXACTLY one profile in the SAME ORDER.\n\n"
+
+        "Each profile must contain:\n"
+        "- risk_score (0..100)\n"
+        "- ai_summary (one short factual sentence, max 200 chars)\n"
+        "- decision_confidence (0..100)\n\n"
+
+        "DECISION CONFIDENCE DEFINITION:\n"
+        "- 100 = only one obvious interpretation exists\n"
+        "- 70-90 = mostly clear, minor ambiguity\n"
+        "- 40-70 = multiple plausible interpretations\n"
+        "- 0-40 = highly ambiguous data\n\n"
+
+        "RULES:\n"
+        "- Use ONLY provided data\n"
+        "- Do NOT invent facts\n"
+        "- If data is missing → confidence must decrease\n"
+        "- High confidence ONLY when there is a single clear explanation\n\n"
+
+        "RISK SIGNALS:\n"
+        "- missing tax_id\n"
+        "- mismatch between purpose and assets\n"
+        "- high potential_loss_uah\n"
+        "- zone RED indicates elevated risk\n\n"
+
         f"Input data: {json.dumps(clean_batch, ensure_ascii=False)}"
     )
 
@@ -210,6 +241,3 @@ async def enrich_candidates_with_ai(
         profiles.extend(_postprocess_profile(item, profile) for item, profile in zip(batch, batch_profiles))
 
     return AiBatchResult(profiles=profiles, used_remote_ai=used_remote_ai)
-
-
-
