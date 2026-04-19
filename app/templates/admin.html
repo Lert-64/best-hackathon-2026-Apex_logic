@@ -27,7 +27,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
-<body class="bg-slate-100 text-slate-900 font-sans" x-data="dashboardData()">
+<body class="bg-slate-100 text-slate-900 font-sans" x-data="dashboardData()" x-init="init()">
     <div x-show="isAuditing" x-cloak class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm grid place-content-center">
         <div class="rounded-2xl bg-white px-8 py-6 border border-slate-200 text-center shadow-lg">
             <svg class="w-10 h-10 animate-spin mx-auto text-meza-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
@@ -171,12 +171,17 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 bg-white">
-                                    <tr>
-                                        <td class="px-5 py-4 font-mono font-bold">4610136300:05:014:0021</td>
-                                        <td class="px-5 py-4">ТОВ Агроінвест</td>
-                                        <td class="px-5 py-4 text-center"><span class="px-2 py-1 rounded-lg text-xs font-black bg-red-100 text-red-700">92%</span></td>
-                                        <td class="px-5 py-4 text-center"><span class="px-2 py-1 rounded text-[10px] uppercase font-black bg-amber-100 text-amber-700">Очікування</span></td>
-                                        <td class="px-5 py-4 text-right font-mono font-bold">125 400 ₴</td>
+                                    <template x-for="item in redAnomalies" :key="item.id">
+                                        <tr>
+                                            <td class="px-5 py-4 font-mono font-bold" x-text="item.cadastral_number || 'N/A'"></td>
+                                            <td class="px-5 py-4" x-text="item.owner_name || 'N/A'"></td>
+                                            <td class="px-5 py-4 text-center"><span class="px-2 py-1 rounded-lg text-xs font-black bg-red-100 text-red-700" x-text="`${item.risk_score ?? 0}%`"></span></td>
+                                            <td class="px-5 py-4 text-center"><span class="px-2 py-1 rounded text-[10px] uppercase font-black bg-amber-100 text-amber-700" x-text="item.status || 'PENDING_ADMIN'"></span></td>
+                                            <td class="px-5 py-4 text-right font-mono font-bold" x-text="formatMoney(item.potential_loss_uah)"></td>
+                                        </tr>
+                                    </template>
+                                    <tr x-show="!isLoadingAnomalies && redAnomalies.length === 0" x-cloak>
+                                        <td colspan="5" class="px-5 py-6 text-center text-slate-500 font-semibold">Немає аномалій RED у статусі PENDING_ADMIN</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -192,10 +197,15 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 bg-white">
-                                    <tr>
-                                        <td class="px-5 py-4 font-mono font-bold">4610136900:02:001:0011</td>
-                                        <td class="px-5 py-4 text-right font-mono font-bold">2.4500</td>
-                                        <td class="px-5 py-4"><span class="px-2.5 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 text-xs font-bold">Комерційне використання</span></td>
+                                    <template x-for="item in greenAnomalies" :key="item.id">
+                                        <tr>
+                                            <td class="px-5 py-4 font-mono font-bold" x-text="item.cadastral_number || 'N/A'"></td>
+                                            <td class="px-5 py-4 text-right font-mono font-bold" x-text="formatLoss(item.potential_loss_uah)"></td>
+                                            <td class="px-5 py-4"><span class="px-2.5 py-1.5 rounded-lg border border-green-200 bg-green-50 text-green-700 text-xs font-bold" x-text="item.ai_summary || 'Потребує перевірки'"></span></td>
+                                        </tr>
+                                    </template>
+                                    <tr x-show="!isLoadingAnomalies && greenAnomalies.length === 0" x-cloak>
+                                        <td colspan="3" class="px-5 py-6 text-center text-slate-500 font-semibold">Немає аномалій GREEN у статусі PENDING_ADMIN</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -247,6 +257,37 @@
                 uploading: false,
                 uploadFeedback: null,
                 auditFeedback: null,
+                isLoadingAnomalies: false,
+                redAnomalies: [],
+                greenAnomalies: [],
+                init() {
+                    this.loadPendingAnomalies();
+                },
+                async loadPendingAnomalies() {
+                    this.isLoadingAnomalies = true;
+                    try {
+                        const response = await fetch('/api/anomalies/pending-admin', { credentials: 'same-origin' });
+                        if (!response.ok) {
+                            throw new Error('failed');
+                        }
+                        const payload = await response.json();
+                        this.redAnomalies = payload.filter((item) => item.zone === 'RED');
+                        this.greenAnomalies = payload.filter((item) => item.zone === 'GREEN');
+                    } catch {
+                        this.redAnomalies = [];
+                        this.greenAnomalies = [];
+                    } finally {
+                        this.isLoadingAnomalies = false;
+                    }
+                },
+                formatMoney(value) {
+                    const amount = Number(value || 0);
+                    return `${amount.toLocaleString('uk-UA')} ₴`;
+                },
+                formatLoss(value) {
+                    const amount = Number(value || 0);
+                    return amount.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                },
                 startAudit() {
                     this.isAuditing = true;
                     this.auditFeedback = null;
@@ -290,6 +331,7 @@
                             ok: true,
                             message: `Аудит завершено: створено ${payload.created || 0} аномалій (RED: ${payload.red || 0}, GREEN: ${payload.green || 0}).`
                         };
+                        this.loadPendingAnomalies();
                         return;
                     }
 
