@@ -1,15 +1,9 @@
 {% if anomalies %}
 {% for a in anomalies %}
-<div class="pool-card bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-4" data-anomaly-id="{{ a.id }}" data-anomaly-location="{{ a.location or 'Локація уточнюється' }}" data-anomaly-cadastral="{{ a.cadastral_number or '' }}">
-    <div class="p-4 border-b border-slate-100 flex justify-between items-start bg-slate-50">
+<div class="pool-card bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4" data-anomaly-id="{{ a.id }}" data-anomaly-location="{{ a.location or 'Локація уточнюється' }}" data-anomaly-cadastral="{{ a.cadastral_number or '' }}">
+    <div class="p-4 border-b border-slate-100 flex justify-between items-start bg-gradient-to-r from-slate-50 to-white">
         <div>
-            {% if a.zone|string == 'RED' %}
-            <span class="bg-red-100 text-red-700 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">RED</span>
-            {% elif a.zone|string == 'GREEN' %}
-            <span class="bg-green-100 text-green-700 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">GREEN</span>
-            {% else %}
-            <span class="bg-blue-100 text-meza-blue text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Нове</span>
-            {% endif %}
+            <span class="bg-emerald-50 text-signal border border-emerald-200 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Нове</span>
             <p class="font-mono text-xs text-slate-500 mt-2">{{ a.cadastral_number or '—' }}</p>
         </div>
         <div class="text-right">
@@ -21,14 +15,14 @@
         </div>
     </div>
     <div class="p-4">
-        <h3 class="text-lg font-bold text-slate-900 mb-1">{{ a.location or 'Адреса не вказана' }}</h3>
+        <h3 class="text-lg font-black text-slate-900 mb-1 tracking-tight">{{ a.location or 'Адреса не вказана' }}</h3>
         <p class="text-sm text-slate-600 mb-4 line-clamp-2">{{ a.ai_summary or 'Обʼєкт очікує польову верифікацію та фотофіксацію волонтером.' }}</p>
 
         <button
             hx-post="/api/anomalies/{{ a.id }}/take"
             hx-swap="none"
             @htmx:after-request="takeTask($event)"
-            class="w-full bg-slate-900 text-white py-3.5 rounded-lg font-bold text-sm hover:bg-black active:scale-[0.98] transition-all flex justify-center items-center gap-2"
+            class="w-full bg-ink text-white py-3.5 rounded-xl font-extrabold text-sm hover:bg-slate-900 active:scale-[0.98] transition-all flex justify-center items-center gap-2"
         >
             <span class="btn-text">Взяти в роботу</span>
             <svg class="htmx-indicator animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
