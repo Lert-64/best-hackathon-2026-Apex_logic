@@ -15,7 +15,8 @@
         </div>
     </div>
     <div class="p-4">
-        <h3 class="text-lg font-black text-slate-900 mb-1 tracking-tight">{{ a.location or 'Адреса не вказана' }}</h3>
+        <h3 class="text-lg font-black text-slate-900 mb-1 tracking-tight">{{ a.owner_name or 'Власника не визначено' }}</h3>
+        <p class="text-xs text-slate-500 mb-2">{{ a.location or 'Локація уточнюється' }}</p>
         <p class="text-sm text-slate-600 mb-4 line-clamp-2">{{ a.ai_summary or 'Обʼєкт очікує польову верифікацію та фотофіксацію волонтером.' }}</p>
 
         <button

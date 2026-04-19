@@ -2,6 +2,7 @@ from decimal import Decimal
 from datetime import date
 import re
 from difflib import SequenceMatcher
+from typing import cast
 
 from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -106,7 +107,7 @@ async def _find_best_estate_match(db: AsyncSession, land: LandRecords) -> RealEs
 
     if land.tax_id:
         estate_by_tax = await db.execute(select(RealEstateRecords).where(RealEstateRecords.tax_id == land.tax_id))
-        tax_id_candidates = estate_by_tax.scalars().all()
+        tax_id_candidates = cast(list[RealEstateRecords], list(estate_by_tax.scalars().all()))
 
     def score(candidate: RealEstateRecords) -> float:
         points = 0.0
@@ -132,7 +133,7 @@ async def _find_best_estate_match(db: AsyncSession, land: LandRecords) -> RealEs
             ),
         )
         estate_result = await db.execute(stmt)
-        candidates = estate_result.scalars().all()
+        candidates = cast(list[RealEstateRecords], list(estate_result.scalars().all()))
 
     if not candidates:
         return None
@@ -245,7 +246,7 @@ async def run_fuzzy_matching_audit(db: AsyncSession) -> tuple[list[Anomalies], b
 
         ai_candidates.append(
             AiAuditCandidate(
-                zone=zone.value,
+                zone=str(zone.value),
                 tax_id=land.tax_id,
                 purpose=land.purpose,
                 ownership_type=land.ownership_type,
@@ -256,12 +257,38 @@ async def run_fuzzy_matching_audit(db: AsyncSession) -> tuple[list[Anomalies], b
         )
 
     ai_result = await enrich_candidates_with_ai(ai_candidates, batch_size=5)
-    for anomaly, profile, penalty, note in zip(anomalies_to_create, ai_result.profiles, quality_penalties, quality_notes):
+    for anomaly, profile, penalty, note, candidate in zip(
+        anomalies_to_create,
+        ai_result.profiles,
+        quality_penalties,
+        quality_notes,
+        ai_candidates,
+    ):
         heuristic_summary = anomaly.ai_summary
-        anomaly.risk_score = min(100, profile.risk_score + penalty)
+        quality_risk_adjustment = round(penalty * 0.45)
+        final_risk = min(100, profile.risk_score + quality_risk_adjustment)
+
+        # Keep low-evidence records from saturating to absolute risk.
+        if not candidate.tax_id and candidate.owner_name_known is False:
+            final_risk = min(final_risk, 92)
+
+        # Owner-unknown rows without measurable loss should stay below absolute-risk bucket.
+        if candidate.owner_name_known is False and (candidate.potential_loss_uah or 0) <= 0:
+            final_risk = min(final_risk, 92)
+
+        # No measurable budget loss should not produce near-maximum risk, even in RED zone.
+        if candidate.zone == AnomalyZone.RED.value and (candidate.potential_loss_uah or 0) <= 0:
+            if candidate.owner_name_known is False:
+                final_risk = min(final_risk, 78)
+            elif candidate.tax_id:
+                final_risk = min(final_risk, 84)
+            else:
+                final_risk = min(final_risk, 88)
+
+        anomaly.risk_score = final_risk
         anomaly.ai_summary = f"{profile.ai_summary} Signals: {heuristic_summary}" if heuristic_summary else profile.ai_summary
         if note:
-            anomaly.ai_summary = f"{anomaly.ai_summary} Data quality: {note}. +{penalty}% risk."
+            anomaly.ai_summary = f"{anomaly.ai_summary} Data quality: {note}. +{quality_risk_adjustment}% risk."
         anomaly.ai_decision_confidence = max(35, min(92, int(profile.decision_confidence)))
 
     if anomalies_to_create:

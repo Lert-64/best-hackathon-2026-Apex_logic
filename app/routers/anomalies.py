@@ -1,16 +1,19 @@
 from pathlib import Path
+import re
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import or_, select
+from pydantic import ValidationError
+from sqlalchemy import func, or_, select
 
 from app.backend.dependencies import db_dep, require_role
 from app.core.config import settings
-from app.models.anomaly_model import Anomalies, AnomalyStatus
+from app.models.anomaly_model import Anomalies, AnomalyStatus, AnomalyZone
 from app.models.audit_log_model import AuditLogs
 from app.models.land_model import LandRecords
+from app.models.real_estate_model import RealEstateRecords
 from app.models.user_model import UserRole
 from app.schemas.anomaly_schemas import (
     AdminDecisionSubmit,
@@ -29,13 +32,91 @@ VOLUNTEER_UPLOAD_DIR = MEDIA_ROOT / "volunteer_reports"
 
 
 async def _to_response(anomaly: Anomalies, db: db_dep) -> AnomalyResponse:
+    placeholder_values = {
+        "unknown",
+        "unknown_owner",
+        "невідомо",
+        "не відомо",
+        "none",
+        "null",
+        "n/a",
+    }
+
     land_stmt = select(LandRecords.owner_name, LandRecords.cadastral_number, LandRecords.location).where(
         LandRecords.lid == anomaly.land_id
     )
     land_result = await db.execute(land_stmt)
-    owner_name, cadastral_number, location = land_result.one_or_none() or (None, "", None)
-    if owner_name and owner_name.strip().upper() == "UNKNOWN_OWNER":
-        owner_name = None
+    land_owner_name, land_cadastral_number, land_location = land_result.one_or_none() or (None, "", None)
+
+    estate_owner_name = None
+    estate_cadastral_number = None
+    estate_address = None
+    if anomaly.real_estate_id:
+        estate_stmt = select(
+            RealEstateRecords.owner_name,
+            RealEstateRecords.cadastral_number,
+            RealEstateRecords.address,
+        ).where(RealEstateRecords.lid == anomaly.real_estate_id)
+        estate_result = await db.execute(estate_stmt)
+        estate_owner_name, estate_cadastral_number, estate_address = estate_result.one_or_none() or (None, None, None)
+
+    def _clean_owner(value: str | None) -> str | None:
+        if not value:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            return None
+        if normalized.lower() in placeholder_values:
+            return None
+        return normalized
+
+    def _clean_location(value: str | None) -> str | None:
+        if not value:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            return None
+        if normalized.lower() in placeholder_values:
+            return None
+        return normalized
+
+    owner_name = _clean_owner(land_owner_name) or _clean_owner(estate_owner_name)
+    cadastral_number = land_cadastral_number or estate_cadastral_number or ""
+    location = _clean_location(land_location) or _clean_location(estate_address)
+
+    # Some legacy anomalies may not have real_estate_id populated; fallback by tax_id.
+    if (not owner_name or not cadastral_number or not location) and anomaly.tax_id:
+        estate_by_tax_stmt = select(
+            RealEstateRecords.owner_name,
+            RealEstateRecords.cadastral_number,
+            RealEstateRecords.address,
+        ).where(RealEstateRecords.tax_id == anomaly.tax_id)
+        estate_by_tax_result = await db.execute(estate_by_tax_stmt)
+        for tax_owner_name, tax_cadastral_number, tax_address in estate_by_tax_result.all():
+            owner_name = owner_name or _clean_owner(tax_owner_name)
+            cadastral_number = cadastral_number or tax_cadastral_number or ""
+            location = location or _clean_location(tax_address)
+            if owner_name and cadastral_number and location:
+                break
+
+    # Tax identifiers are often missing in uploaded registries; fallback by cadastral number shape.
+    if (not owner_name or not location) and cadastral_number:
+        cadastral_digits = re.sub(r"\D", "", cadastral_number)
+        if cadastral_digits:
+            estate_by_cadastral_stmt = select(
+                RealEstateRecords.owner_name,
+                RealEstateRecords.cadastral_number,
+                RealEstateRecords.address,
+            ).where(
+                func.regexp_replace(RealEstateRecords.cadastral_number, r"\D", "", "g") == cadastral_digits
+            )
+            estate_by_cadastral_result = await db.execute(estate_by_cadastral_stmt)
+            for cad_owner_name, cad_cadastral_number, cad_address in estate_by_cadastral_result.all():
+                owner_name = owner_name or _clean_owner(cad_owner_name)
+                cadastral_number = cadastral_number or cad_cadastral_number or ""
+                location = location or _clean_location(cad_address)
+                if owner_name and location:
+                    break
 
     volunteer_photo_url = None
     if anomaly.volunteer_photo_path:
@@ -69,6 +150,22 @@ def _audit_log(anomaly_id: UUID, reason: str, action: str, user_id: UUID | None)
         reason=reason,
         user_id=user_id,
     )
+
+
+async def _parse_inspector_report_payload(request: Request) -> InspectorReportSubmit:
+    content_type = (request.headers.get("content-type") or "").lower()
+    try:
+        if "application/json" in content_type:
+            payload = await request.json()
+        else:
+            form = await request.form()
+            payload = {
+                "is_confirmed": form.get("is_confirmed"),
+                "inspector_comment": form.get("inspector_comment"),
+            }
+        return InspectorReportSubmit.model_validate(payload)
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors()) from exc
 
 
 @router.get("", response_model=list[AnomalyResponse])
@@ -159,10 +256,8 @@ async def list_pool(
     stmt = (
         select(Anomalies)
         .where(
-            or_(
-                Anomalies.status == AnomalyStatus.NEW,
-                Anomalies.status == AnomalyStatus.PENDING_ADMIN,
-            )
+            Anomalies.zone == AnomalyZone.RED,
+            or_(Anomalies.status == AnomalyStatus.NEW, Anomalies.status == AnomalyStatus.PENDING_ADMIN),
         )
         .order_by(Anomalies.created_at.asc())
     )
@@ -176,10 +271,8 @@ async def list_pool_html(request: Request, db: db_dep, _=Depends(require_role(Us
     stmt = (
         select(Anomalies)
         .where(
-            or_(
-                Anomalies.status == AnomalyStatus.NEW,
-                Anomalies.status == AnomalyStatus.PENDING_ADMIN,
-            )
+            Anomalies.zone == AnomalyZone.RED,
+            or_(Anomalies.status == AnomalyStatus.NEW, Anomalies.status == AnomalyStatus.PENDING_ADMIN),
         )
         .order_by(Anomalies.created_at.asc())
     )
@@ -248,6 +341,12 @@ async def take_task(
             detail="Task is not available in the pool",
         )
 
+    if anomaly.zone != AnomalyZone.RED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only RED anomalies are available for volunteer field work",
+        )
+
     anomaly.status = AnomalyStatus.IN_WORK
     anomaly.volunteer_id = current_user.id
     db.add(_audit_log(anomaly.lid, "Task taken by volunteer", "TAKEN", current_user.id))
@@ -306,10 +405,11 @@ async def submit_volunteer_report(
 async def submit_inspector_decision(
     anomaly_id: UUID,
     request: Request,
-    payload: InspectorReportSubmit,
     db: db_dep,
     current_user=Depends(require_role(UserRole.INSPECTOR)),
 ):
+    payload = await _parse_inspector_report_payload(request)
+
     stmt = select(Anomalies).where(Anomalies.lid == anomaly_id).with_for_update()
     result = await db.execute(stmt)
     anomaly = result.scalar_one_or_none()

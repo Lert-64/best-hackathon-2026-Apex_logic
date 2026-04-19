@@ -57,23 +57,20 @@
                 hx-ext="json-enc"
                 hx-target="#validation-queue"
                 hx-swap="innerHTML"
-                x-data="{ comment: '', confirmed: null }"
-                @submit="if(confirmed === false && comment.trim() === '') { $event.preventDefault(); alert('Для відхилення звіту обов\'язково вкажіть причину в коментарі.'); }"
+                x-data="{ comment: '' }"
                 class="mt-auto space-y-5 bg-slate-50 p-6 rounded-2xl border border-slate-200"
             >
-                <input type="hidden" name="is_confirmed" :value="confirmed">
-
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Коментар Інспектора (Лог)</label>
                     <textarea name="inspector_comment" x-model="comment" rows="2" class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-900/20 focus:border-slate-500 shadow-sm bg-white transition-all text-sm resize-none" placeholder="Юридичне обґрунтування вашого рішення..."></textarea>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
-                    <button type="submit" @click="confirmed = false" class="py-4 px-4 rounded-xl font-bold text-[15px] border-2 border-slate-300 text-slate-600 transition-all bg-white active:scale-95 flex justify-center items-center gap-2 shadow-sm">
+                    <button type="submit" name="is_confirmed" value="false" @click="if (comment.trim() === '') { $event.preventDefault(); alert('Для відхилення звіту обов\'язково вкажіть причину в коментарі.'); }" class="py-4 px-4 rounded-xl font-bold text-[15px] border-2 border-slate-300 text-slate-600 transition-all bg-white active:scale-95 flex justify-center items-center gap-2 shadow-sm">
                         <span class="btn-text flex items-center gap-2">Відхилити звіт</span>
                         <svg class="htmx-indicator animate-spin w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle></svg>
                     </button>
-                    <button type="submit" @click="confirmed = true" class="py-4 px-4 rounded-xl font-bold text-[15px] bg-red-600 text-white hover:bg-red-700 transition-all active:scale-95 shadow-md shadow-red-600/20 flex justify-center items-center gap-2 border-2 border-transparent">
+                    <button type="submit" name="is_confirmed" value="true" class="py-4 px-4 rounded-xl font-bold text-[15px] bg-red-600 text-white hover:bg-red-700 transition-all active:scale-95 shadow-md shadow-red-600/20 flex justify-center items-center gap-2 border-2 border-transparent">
                         <span class="btn-text flex items-center gap-2">Підтвердити порушення</span>
                         <svg class="htmx-indicator animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle></svg>
                     </button>

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import Any, cast
 
 from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
 from pydantic import BaseModel
 
 from app.core.config import settings
@@ -27,7 +29,7 @@ def _local_profile(candidate: AiAuditCandidate) -> AiAnomalyProfile:
     ownership = (candidate.ownership_type or "").lower()
 
     if candidate.zone == "RED":
-        risk_score = 80
+        risk_score = 70
         reason = "High risk: record was not matched across registries"
         confidence = 75
     elif "комунал" in ownership:
@@ -54,17 +56,17 @@ def _apply_boost(candidate: AiAuditCandidate) -> int:
     boost = 0
 
     if candidate.zone == "RED":
-        boost += 10
+        boost += 6
 
     if not candidate.tax_id:
-        boost += 15
+        boost += 8
 
     if candidate.potential_loss_uah and candidate.potential_loss_uah > 100000:
-        boost += 10
+        boost += 8
 
     purpose = (candidate.purpose or "").lower()
     if "комерц" in purpose or "komerc" in purpose:
-        boost += 10
+        boost += 6
 
     return boost
 
@@ -129,6 +131,11 @@ def _calibrate_confidence(candidate: AiAuditCandidate, base_confidence: int) -> 
 
 def _postprocess_profile(candidate: AiAuditCandidate, profile: AiAnomalyProfile) -> AiAnomalyProfile:
     boosted_risk = min(100, profile.risk_score + _apply_boost(candidate))
+
+    # Missing core identity signals should not produce absolute-risk outcomes.
+    if not candidate.tax_id and candidate.owner_name_known is False:
+        boosted_risk = min(boosted_risk, 92)
+
     adjusted_confidence = _calibrate_confidence(candidate, profile.decision_confidence)
 
     summary = (profile.ai_summary or "").strip()
@@ -190,18 +197,20 @@ async def _request_profiles_from_openai(batch: list[AiAuditCandidate]) -> list[A
         f"Input data: {json.dumps(clean_batch, ensure_ascii=False)}"
     )
 
+    messages = [
+        ChatCompletionSystemMessageParam(role="system", content="Return structured output that matches the response schema."),
+        ChatCompletionUserMessageParam(role="user", content=prompt),
+    ]
+
     completion = await client.beta.chat.completions.parse(
         model="gpt-4.1",
         temperature=0.1,
         timeout=10,
-        messages=[
-            {"role": "system", "content": "Return structured output that matches the response schema."},
-            {"role": "user", "content": prompt},
-        ],
+        messages=messages,
         response_format=AiProfilesPayload,
     )
 
-    payload = completion.choices[0].message.parsed
+    payload = cast(Any, completion.choices[0].message.parsed)
     if payload is None:
         raise ValueError("OpenAI response parsing failed")
 
