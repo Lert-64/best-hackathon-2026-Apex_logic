@@ -1,6 +1,6 @@
 {% if anomalies %}
 {% for a in anomalies %}
-<div class="pool-card bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4" data-anomaly-id="{{ a.id }}" data-anomaly-location="{{ a.location or 'Локація уточнюється' }}" data-anomaly-cadastral="{{ a.cadastral_number or '' }}">
+<div class="pool-card bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4" data-anomaly-id="{{ a.id }}" data-anomaly-location="{{ a.location or 'Локація уточнюється' }}" data-anomaly-cadastral="{{ a.cadastral_number or '' }}" data-anomaly-owner="{{ a.owner_name or '' }}">
     <div class="p-4 border-b border-slate-100 flex justify-between items-start bg-gradient-to-r from-slate-50 to-white">
         <div>
             <span class="bg-emerald-50 text-signal border border-emerald-200 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Нове</span>
