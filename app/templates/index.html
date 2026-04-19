@@ -3,234 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Межа | Система кадастрового моніторингу</title>
-    
+    <title>Mezha | Land Intelligence Platform</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    fontFamily: { sans: ['Manrope', 'sans-serif'] },
                     colors: {
-                        'meza-blue': '#0057B7',
-                        'meza-dark': '#003f8a',
-                        'charcoal': '#1e293b',
+                        ink: '#111827',
+                        mist: '#f3f4f6',
+                        signal: '#0f766e',
+                        flare: '#f59e0b'
                     }
                 }
             }
-        }
+        };
     </script>
-    
+
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    
-    <style>
-        [x-cloak] { display: none !important; }
-        
-        body { 
-            background-color: #f8fafc;
-            background-image: linear-gradient(to right, #e2e8f0 1px, transparent 1px),
-                              linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
-            background-size: 40px 40px;
-            -webkit-font-smoothing: antialiased; 
-        }
-
-        .fade-in {
-            animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            opacity: 0;
-            transform: translateY(15px);
-        }
-        
-        .delay-100 { animation-delay: 100ms; }
-        .delay-200 { animation-delay: 200ms; }
-
-        @keyframes fadeIn {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .glass-card {
-            background-color: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(8px);
-        }
-    </style>
 </head>
-<body class="text-charcoal font-sans flex flex-col min-h-screen">
+<body class="min-h-screen bg-mist text-ink font-sans">
+    <div class="fixed inset-0 -z-10 overflow-hidden">
+        <div class="absolute -top-40 -left-24 w-[34rem] h-[34rem] rounded-full bg-cyan-300/30 blur-3xl"></div>
+        <div class="absolute top-1/3 -right-24 w-[32rem] h-[32rem] rounded-full bg-amber-200/40 blur-3xl"></div>
+        <div class="absolute bottom-0 left-1/4 w-[26rem] h-[26rem] rounded-full bg-emerald-300/25 blur-3xl"></div>
+    </div>
 
-    <header 
-        x-data="{ mobileMenuOpen: false, scrolled: false }" 
-        @scroll.window="scrolled = (window.pageYOffset > 10)"
-        :class="scrolled ? 'border-slate-200 shadow-sm glass-card' : 'border-transparent bg-transparent'"
-        class="fixed top-0 w-full z-50 border-b transition-all duration-300"
-    >
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16 md:h-20">
-                <div class="flex-shrink-0 flex items-center gap-3">
-                    <div class="w-8 h-8 bg-meza-blue text-white rounded-lg flex items-center justify-center font-black tracking-tighter shadow-sm">M</div>
-                    <a href="#" class="font-extrabold text-xl tracking-tight text-charcoal flex flex-col leading-none">
-                        Межа
-                        <span class="text-[9px] text-slate-500 uppercase tracking-widest mt-1 font-semibold">Кадастровий моніторинг</span>
-                    </a>
+    <header x-data="{ menuOpen: false }" class="sticky top-0 z-50 backdrop-blur bg-white/80 border-b border-white/60">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 md:h-20 flex items-center justify-between">
+            <a href="#" class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-ink text-white grid place-content-center font-black">M</div>
+                <div class="leading-tight">
+                    <p class="text-xl font-extrabold tracking-tight">Mezha</p>
+                    <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Land Intelligence</p>
                 </div>
+            </a>
 
-                <nav class="hidden md:flex space-x-8">
-                    <a href="#about" class="text-slate-600 hover:text-meza-blue font-semibold text-sm transition-colors">Про систему</a>
-                    <a href="#workflow" class="text-slate-600 hover:text-meza-blue font-semibold text-sm transition-colors">Алгоритм роботи</a>
-                    <a href="#roles" class="text-slate-600 hover:text-meza-blue font-semibold text-sm transition-colors">Ролі</a>
-                </nav>
+            <nav class="hidden md:flex items-center gap-8 text-sm font-bold text-slate-600">
+                <a href="#about" class="hover:text-ink transition-colors">Про платформу</a>
+                <a href="#workflow" class="hover:text-ink transition-colors">Процес</a>
+                <a href="#roles" class="hover:text-ink transition-colors">Ролі</a>
+            </nav>
 
-                <div class="hidden md:flex items-center gap-4">
-                    <a 
-                        href="/login"
-                        class="bg-meza-blue text-white hover:bg-meza-dark px-6 py-2.5 rounded-md font-semibold text-sm transition-all active:scale-95 shadow-md flex items-center gap-2"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
-                        Увійти
-                    </a>
-                </div>
-
-                <div class="flex items-center md:hidden">
-                    <button @click="mobileMenuOpen = !mobileMenuOpen" class="text-slate-500 hover:text-charcoal focus:outline-none">
-                        <svg x-show="!mobileMenuOpen" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
-                        <svg x-show="mobileMenuOpen" x-cloak class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
+            <div class="hidden md:block">
+                <a href="/login" class="h-11 px-6 rounded-xl bg-ink text-white font-extrabold text-sm hover:bg-slate-900 transition-colors inline-flex items-center">Увійти</a>
             </div>
+
+            <button @click="menuOpen = !menuOpen" class="md:hidden w-10 h-10 rounded-xl border border-slate-300 bg-white grid place-content-center text-slate-700">
+                <svg x-show="!menuOpen" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                <svg x-show="menuOpen" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
         </div>
 
-        <div x-show="mobileMenuOpen" x-cloak x-collapse class="md:hidden bg-white border-b border-slate-200 shadow-lg absolute w-full">
-            <div class="px-4 pt-2 pb-6 space-y-1">
-                <a href="#about" @click="mobileMenuOpen = false" class="block px-3 py-3 rounded-md text-base font-medium text-slate-700 hover:text-meza-blue hover:bg-slate-50">Про систему</a>
-                <a href="#workflow" @click="mobileMenuOpen = false" class="block px-3 py-3 rounded-md text-base font-medium text-slate-700 hover:text-meza-blue hover:bg-slate-50">Алгоритм роботи</a>
-                <a href="#roles" @click="mobileMenuOpen = false" class="block px-3 py-3 rounded-md text-base font-medium text-slate-700 hover:text-meza-blue hover:bg-slate-50">Ролі</a>
-                <div class="mt-4 pt-4 border-t border-slate-100">
-                    <a href="/login" class="w-full bg-meza-blue text-white px-5 py-3 rounded-md font-bold text-base transition-colors active:bg-meza-dark flex justify-center items-center gap-2">
-                        Увійти
-                    </a>
-                </div>
-            </div>
+        <div x-show="menuOpen" x-cloak class="md:hidden border-t border-slate-200 bg-white px-4 pb-5 pt-2 space-y-2">
+            <a href="#about" @click="menuOpen=false" class="block px-3 py-2.5 rounded-lg text-sm font-bold text-slate-700 bg-slate-50">Про платформу</a>
+            <a href="#workflow" @click="menuOpen=false" class="block px-3 py-2.5 rounded-lg text-sm font-bold text-slate-700 bg-slate-50">Процес</a>
+            <a href="#roles" @click="menuOpen=false" class="block px-3 py-2.5 rounded-lg text-sm font-bold text-slate-700 bg-slate-50">Ролі</a>
+            <a href="/login" class="block text-center h-11 leading-[44px] rounded-xl bg-ink text-white font-extrabold text-sm">Увійти</a>
         </div>
     </header>
 
-    <main class="flex-grow pt-24 pb-20">
-        
-        <section id="about" class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-24 text-center">
-            <div class="max-w-4xl mx-auto fade-in">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-200 bg-white text-meza-blue text-xs font-bold uppercase tracking-widest mb-6 shadow-sm">
-                    <span class="w-2 h-2 rounded-full bg-meza-blue animate-pulse"></span>
-                    Штучний Інтелект + Краудсорсинг
-                </div>
-                
-                <h1 class="text-4xl md:text-6xl font-extrabold text-charcoal tracking-tight leading-tight mb-6">
-                    Прозорість та контроль <br />земельних активів
-                </h1>
-                
-                <p class="fade-in delay-100 text-lg md:text-xl text-slate-600 mb-10 leading-relaxed max-w-2xl mx-auto">
-                    Платформа <b class="text-slate-800">«Межа»</b> виявляє розбіжності в реєстрах нерухомості за допомогою алгоритмів ШІ, залучаючи громаду до фіксації порушень на місцях.
-                </p>
-                
-                <div class="fade-in delay-200 flex justify-center">
-                    <a href="/login" class="bg-meza-blue text-white px-10 py-4 rounded-md font-bold text-lg transition-all active:scale-95 hover:bg-meza-dark shadow-xl hover:shadow-2xl flex items-center gap-3">
-                        Увійти до системи
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                    </a>
-                </div>
+    <main class="pb-20">
+        <section id="about" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 md:pt-20">
+            <div class="grid lg:grid-cols-[1.2fr_1fr] gap-8 lg:gap-10 items-stretch">
+                <article class="rounded-3xl border border-white/70 bg-white/85 backdrop-blur p-7 md:p-10 shadow-[0_20px_60px_-30px_rgba(15,23,42,.35)]">
+                    <div class="inline-flex items-center gap-2 rounded-full bg-emerald-50 text-signal px-3 py-1 text-[11px] uppercase tracking-widest font-black border border-emerald-200">
+                        <span class="w-2 h-2 rounded-full bg-signal"></span>
+                        AI + Community Validation
+                    </div>
+
+                    <h1 class="mt-5 text-4xl md:text-6xl font-black leading-[1.05] tracking-tight">
+                        Mezha
+                        <span class="block text-slate-500 font-extrabold text-2xl md:text-3xl mt-3">Коли земельні дані стають доказом</span>
+                    </h1>
+
+                    <p class="mt-6 text-base md:text-lg leading-relaxed text-slate-600 max-w-2xl">
+                        Сучасна платформа для громад: автоматично знаходить аномалії в реєстрах,
+                        залучає волонтерів до фотофіксації та дає інспектору швидке поле для юридичного рішення.
+                    </p>
+
+                    <div class="mt-8 flex flex-wrap gap-3">
+                        <a href="/login" class="h-12 px-7 rounded-xl bg-ink text-white font-extrabold text-sm inline-flex items-center gap-2 hover:bg-slate-900 transition-colors">
+                            Увійти в Mezha
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                        </a>
+                        <a href="#workflow" class="h-12 px-7 rounded-xl border border-slate-300 bg-white text-slate-700 font-extrabold text-sm inline-flex items-center hover:border-slate-500 transition-colors">
+                            Подивитись процес
+                        </a>
+                    </div>
+                </article>
+
+                <aside class="rounded-3xl border border-slate-200 bg-slate-900 text-white p-7 md:p-8 shadow-[0_18px_40px_-22px_rgba(15,23,42,.55)]">
+                    <p class="text-[11px] uppercase tracking-[0.2em] font-black text-slate-400">Live Signals</p>
+                    <div class="mt-5 space-y-4">
+                        <div class="rounded-2xl border border-slate-700 bg-slate-800/70 p-4">
+                            <p class="text-xs text-slate-400 uppercase tracking-widest font-bold">Актуальні KPI</p>
+                            <p class="mt-2 text-xl font-black">Відображаються після входу в адмін-панель</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="rounded-2xl border border-slate-700 bg-slate-800/70 p-4">
+                                <p class="text-xs text-slate-400 uppercase tracking-widest font-bold">RED / GREEN</p>
+                                <p class="mt-2 text-sm font-bold text-flare">Живі дані з реєстрів</p>
+                            </div>
+                            <div class="rounded-2xl border border-slate-700 bg-slate-800/70 p-4">
+                                <p class="text-xs text-slate-400 uppercase tracking-widest font-bold">Статуси кейсів</p>
+                                <p class="mt-2 text-sm font-bold text-emerald-300">POOL / IN_WORK / VALIDATED</p>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
             </div>
         </section>
 
-        <section id="workflow" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-            <div class="text-center mb-16 fade-in delay-100">
-                <h2 class="text-sm font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Життєвий цикл аномалії</h2>
-                <h3 class="text-3xl font-bold text-charcoal">Як працює платформа</h3>
+        <section id="workflow" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
+            <div class="flex items-end justify-between gap-6 mb-8 md:mb-10">
+                <div>
+                    <p class="text-[11px] uppercase tracking-[0.2em] font-black text-slate-400">Workflow</p>
+                    <h2 class="mt-2 text-3xl md:text-4xl font-black tracking-tight">Як працює Mezha</h2>
+                </div>
             </div>
-            
-            <div class="grid md:grid-cols-3 gap-8 relative">
-                <div class="hidden md:block absolute top-12 left-[15%] right-[15%] h-px bg-slate-300 z-0"></div>
-                
-                <div class="fade-in delay-100 relative z-10 glass-card p-8 rounded-xl border border-slate-200 shadow-sm text-center">
-                    <div class="w-16 h-16 mx-auto bg-white border-2 border-meza-blue text-meza-blue rounded-xl flex items-center justify-center mb-6 shadow-md transform rotate-3">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
-                    </div>
-                    <h4 class="text-xl font-bold mb-3 text-charcoal">1. AI Аналіз (NEW)</h4>
-                    <p class="text-slate-600 text-sm leading-relaxed">Система зіставляє ДЗК та Реєстр нерухомості, генерує ризик-оцінку та розміщує об'єкт у публічний пул завдань.</p>
-                </div>
-                
-                <div class="fade-in delay-200 relative z-10 glass-card p-8 rounded-xl border border-slate-200 shadow-sm text-center">
-                    <div class="w-16 h-16 mx-auto bg-white border-2 border-amber-500 text-amber-600 rounded-xl flex items-center justify-center mb-6 shadow-md transform -rotate-3">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                    </div>
-                    <h4 class="text-xl font-bold mb-3 text-charcoal">2. Краудсорсинг</h4>
-                    <p class="text-slate-600 text-sm leading-relaxed">Волонтер бере завдання через мобільний додаток, прибуває на місце, фіксує порушення на фото та додає коментар.</p>
-                </div>
-                
-                <div class="fade-in delay-300 relative z-10 glass-card p-8 rounded-xl border border-slate-200 shadow-sm text-center">
-                    <div class="w-16 h-16 mx-auto bg-white border-2 border-green-500 text-green-600 rounded-xl flex items-center justify-center mb-6 shadow-md transform rotate-3">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    </div>
-                    <h4 class="text-xl font-bold mb-3 text-charcoal">3. Валідація</h4>
-                    <p class="text-slate-600 text-sm leading-relaxed">Інспектор ОМС перевіряє зібрані волонтером докази та виносить офіційний юридичний вердикт згідно з нормативною базою.</p>
-                </div>
+
+            <div class="grid md:grid-cols-3 gap-5 md:gap-6">
+                <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <p class="text-4xl font-black text-slate-200">01</p>
+                    <h3 class="mt-3 text-xl font-black">AI-скринінг</h3>
+                    <p class="mt-2 text-slate-600 text-sm leading-relaxed">Система порівнює кадастрові та майнові реєстри й формує список ризикових ділянок.</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <p class="text-4xl font-black text-slate-200">02</p>
+                    <h3 class="mt-3 text-xl font-black">Польова перевірка</h3>
+                    <p class="mt-2 text-slate-600 text-sm leading-relaxed">Волонтер бере кейс, робить фото на місці, додає короткий фактичний коментар.</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <p class="text-4xl font-black text-slate-200">03</p>
+                    <h3 class="mt-3 text-xl font-black">Юридична валідація</h3>
+                    <p class="mt-2 text-slate-600 text-sm leading-relaxed">Інспектор перевіряє докази, підтверджує або відхиляє кейс із фіксацією рішення.</p>
+                </article>
             </div>
         </section>
 
-        <section id="roles" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-            <div class="mb-12 text-center fade-in delay-100">
-                <h2 class="text-3xl font-bold mb-4 text-charcoal">Єдина платформа для трьох ролей</h2>
-                <p class="text-slate-600 max-w-2xl mx-auto text-lg">Кожен учасник має спеціалізований інтерфейс, адаптований під його конкретні завдання.</p>
-            </div>
-            
-            <div class="grid md:grid-cols-3 gap-6">
-                <div class="glass-card p-8 border border-slate-200 shadow-sm rounded-xl flex flex-col hover:border-meza-blue transition-colors fade-in delay-100">
-                    <div class="text-[10px] font-black tracking-widest text-slate-400 uppercase mb-2">Role</div>
-                    <h3 class="text-2xl font-bold mb-4 text-meza-blue">Адміністратор</h3>
-                    <p class="text-slate-600 text-sm mb-6 flex-grow">Керує завантаженням реєстрів, запускає алгоритми Fuzzy Matching та контролює загальну фінансову аналітику втрат бюджету.</p>
-                    <ul class="text-sm space-y-3 text-slate-700 font-medium">
-                        <li class="flex items-center gap-3"><div class="w-1.5 h-1.5 rounded-full bg-meza-blue"></div> Настільний дашборд</li>
-                        <li class="flex items-center gap-3"><div class="w-1.5 h-1.5 rounded-full bg-meza-blue"></div> Антикорупційні логи</li>
-                    </ul>
-                </div>
+        <section id="roles" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 md:pb-20">
+            <div class="rounded-3xl border border-slate-200 bg-white p-6 md:p-8 shadow-sm">
+                <p class="text-[11px] uppercase tracking-[0.2em] font-black text-slate-400">Roles</p>
+                <h2 class="mt-2 text-3xl font-black tracking-tight">Три ролі, одна система</h2>
 
-                <div class="glass-card p-8 border-2 border-amber-400 shadow-md rounded-xl flex flex-col relative overflow-hidden fade-in delay-200">
-                    <div class="absolute top-0 right-0 bg-amber-400 text-white text-[10px] font-black px-3 py-1 rounded-bl-lg uppercase tracking-wider">Нове</div>
-                    <div class="text-[10px] font-black tracking-widest text-slate-400 uppercase mb-2">Role</div>
-                    <h3 class="text-2xl font-bold mb-4 text-amber-600">Волонтер</h3>
-                    <p class="text-slate-600 text-sm mb-6 flex-grow">Активний житель громади, який бере участь у пошуку порушень через мобільний інтерфейс.</p>
-                    <ul class="text-sm space-y-3 text-slate-700 font-medium">
-                        <li class="flex items-center gap-3"><div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div> Мобільний термінал</li>
-                        <li class="flex items-center gap-3"><div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div> Фото-фіксація на місці</li>
-                    </ul>
-                </div>
-
-                <div class="glass-card p-8 border border-slate-200 shadow-sm rounded-xl flex flex-col hover:border-green-500 transition-colors fade-in delay-300">
-                    <div class="text-[10px] font-black tracking-widest text-slate-400 uppercase mb-2">Role</div>
-                    <h3 class="text-2xl font-bold mb-4 text-green-600">Інспектор</h3>
-                    <p class="text-slate-600 text-sm mb-6 flex-grow">Офіційна особа ОМС. Більше не витрачає час на виїзди — лише валідує зібрані волонтерами дані та виносить рішення.</p>
-                    <ul class="text-sm space-y-3 text-slate-700 font-medium">
-                        <li class="flex items-center gap-3"><div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> Інтерфейс валідації</li>
-                        <li class="flex items-center gap-3"><div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> Юридичні вердикти</li>
-                    </ul>
+                <div class="mt-7 grid md:grid-cols-3 gap-5">
+                    <div class="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                        <p class="text-xs uppercase tracking-widest text-slate-500 font-black">Admin</p>
+                        <h3 class="mt-2 text-xl font-black">Керування аудитом</h3>
+                        <p class="mt-2 text-sm text-slate-600">Завантаження реєстрів, запуск порівняння, контроль фінансових ризиків.</p>
+                    </div>
+                    <div class="rounded-2xl border border-amber-200 p-5 bg-amber-50/60">
+                        <p class="text-xs uppercase tracking-widest text-amber-700 font-black">Volunteer</p>
+                        <h3 class="mt-2 text-xl font-black">Фактчек на місці</h3>
+                        <p class="mt-2 text-sm text-slate-600">Швидка фотофіксація та передача доказів у систему за кілька кроків.</p>
+                    </div>
+                    <div class="rounded-2xl border border-emerald-200 p-5 bg-emerald-50/60">
+                        <p class="text-xs uppercase tracking-widest text-emerald-700 font-black">Inspector</p>
+                        <h3 class="mt-2 text-xl font-black">Офіційний вердикт</h3>
+                        <p class="mt-2 text-sm text-slate-600">Валідація кейсів, юридичне рішення та формування прозорого логу дій.</p>
+                    </div>
                 </div>
             </div>
         </section>
-
     </main>
 
-    <footer class="bg-white border-t border-slate-200 py-10 mt-auto relative z-10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
-            <div class="text-sm font-semibold text-slate-500">
-                &copy; 2026 Межа. Всі права захищено.
-            </div>
-            <div class="flex space-x-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <span>Version 2.0 Stable</span>
-            </div>
+    <footer class="border-t border-slate-200 bg-white/85 backdrop-blur py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p class="text-sm font-semibold text-slate-500">© 2026 Mezha. All rights reserved.</p>
+            <p class="text-[11px] uppercase tracking-widest font-black text-slate-400">GovTech Build v2.0</p>
         </div>
     </footer>
-
 </body>
 </html>

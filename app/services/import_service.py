@@ -70,8 +70,10 @@ LAND_COLUMN_ALIASES = {
     "rnokpp": "tax_id",
     "owner_name": "owner_name",
     "vlasnyk": "owner_name",
+    "zemlekorystuvach": "owner_name",
     "ownership_share": "ownership_share",
     "chastka_vlasnosti": "ownership_share",
+    "chastka_volodinnya": "ownership_share",
     "reg_date": "reg_date",
     "data_reiestracii": "reg_date",
     "data_reyestratsii": "reg_date",
@@ -86,10 +88,13 @@ LAND_COLUMN_ALIASES = {
     "orhan_reiestracii": "reg_authority",
     "orhan_reyestratsiyi": "reg_authority",
     "orhan_reiestratsiyi": "reg_authority",
+    "orhan_shcho_zdiisnyv_derzhavnu_reyestratsiyu_prava_vlasnosti": "reg_authority",
     "doc_type": "doc_type",
     "typ_dokumenta": "doc_type",
+    "typ": "doc_type",
     "agri_type": "agri_type",
     "doc_subtype": "doc_subtype",
+    "pidtyp": "doc_subtype",
 }
 
 ESTATE_COLUMN_ALIASES = {
@@ -174,55 +179,12 @@ def _normalize_header(value: Any) -> str:
 
 
 def _canonicalize_columns(df: pd.DataFrame, alias_map: dict[str, str]) -> pd.DataFrame:
-    def _guess_target(normalized: str) -> str:
-        if "kadast" in normalized:
-            return "cadastral_number"
-        if "koatu" in normalized:
-            return "koatuu"
-        if "vlasn" in normalized and ("forma" in normalized or "typ" in normalized):
-            return "ownership_type"
-        if "cil" in normalized or "tsil" in normalized or "purpose" in normalized:
-            return "purpose"
-        if "misce" in normalized or "mistse" in normalized or "address" in normalized or "adresa" in normalized:
-            return "location"
-        if "plosh" in normalized and "ha" in normalized:
-            return "area_ha"
-        if "otsink" in normalized or "ocink" in normalized or "valuation" in normalized or normalized == "ngo":
-            return "valuation"
-        if "edrpou" in normalized or "rnokpp" in normalized or "tax" in normalized:
-            return "tax_id"
-        if "vlasnyk" in normalized or "owner" in normalized:
-            return "owner_name"
-        if "chastk" in normalized and "vlasn" in normalized:
-            return "ownership_share"
-        if "data" in normalized and ("reyestr" in normalized or "reiestr" in normalized):
-            return "reg_date"
-        if "nomer" in normalized and "zapys" in normalized:
-            return "record_number"
-        if "organ" in normalized and ("reyestr" in normalized or "reiestr" in normalized):
-            return "reg_authority"
-        if "typ" in normalized and "dokument" in normalized:
-            return "doc_type"
-        if "agri" in normalized:
-            return "agri_type"
-        if "subtype" in normalized:
-            return "doc_subtype"
-        if "obiekt" in normalized or "obyekt" in normalized or "object" in normalized:
-            return "object_type"
-        if "zahalna" in normalized and "plosh" in normalized:
-            return "total_area_sqm"
-        if "prypyn" in normalized or "termination" in normalized:
-            return "termination_date"
-        if "spilna" in normalized and "vlasn" in normalized:
-            return "joint_ownership_type"
-        return normalized
-
     rename_map: dict[str, str] = {}
     used_targets: set[str] = set()
 
     for original in df.columns:
         normalized = _normalize_header(original)
-        target = alias_map.get(normalized, _guess_target(normalized))
+        target = alias_map.get(normalized, normalized)
         if target in used_targets:
             continue
         rename_map[original] = target

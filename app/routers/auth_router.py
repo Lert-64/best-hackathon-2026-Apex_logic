@@ -104,7 +104,7 @@ async def get_refresh_token(req: RefreshTokenRequest, db: db_dep):
 @router.post("/logout")
 async def logout(response: Response):
     response.delete_cookie("access_token", path="/")
-    response.headers["HX-Redirect"] = "/login"
+    response.headers["HX-Redirect"] = "/"
     return {"message": "Successfully logged out"}
 
 
