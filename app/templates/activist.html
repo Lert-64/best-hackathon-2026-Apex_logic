@@ -162,10 +162,18 @@
                     const source = event.currentTarget || event.target;
                     const card = source && source.closest ? source.closest('[data-anomaly-id]') : null;
                     if (card) {
+                        const cadastral = (card.dataset.anomalyCadastral || '').trim();
+                        const owner = (card.dataset.anomalyOwner || '').trim();
+                        const rawLocation = (card.dataset.anomalyLocation || '').trim();
+                        const locationUnknown = !rawLocation || rawLocation.toLowerCase() === 'локація уточнюється';
+                        const resolvedLocation = locationUnknown
+                            ? (owner || (cadastral ? `Ділянка ${cadastral}` : 'Локація уточнюється'))
+                            : rawLocation;
+
                         this.pendingTask = {
                             id: card.dataset.anomalyId,
-                            location: card.dataset.anomalyLocation || '',
-                            cadastral: card.dataset.anomalyCadastral || ''
+                            location: resolvedLocation,
+                            cadastral
                         };
                     }
                 },

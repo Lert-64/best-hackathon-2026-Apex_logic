@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 import re
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from fastapi import HTTPException, UploadFile, status
@@ -39,6 +39,7 @@ MISSING_OWNER_NAME_FALLBACK = "UNKNOWN_OWNER"
 MISSING_RECORD_NUMBER_PREFIX = "AUTO-REC"
 MISSING_TEXT_FALLBACK = "UNKNOWN"
 MISSING_REG_DATE_FALLBACK = date(1900, 1, 1)
+UNKNOWN_OWNER_VALUES = {"", "unknown", "unknown_owner", "невідомо", "не відомо", "none", "null", "n/a"}
 
 LAND_COLUMN_ALIASES = {
     "cadastral_number": "cadastral_number",
@@ -64,13 +65,42 @@ LAND_COLUMN_ALIASES = {
     "ocinka": "valuation",
     "otsinka": "valuation",
     "tax_id": "tax_id",
+    "kod": "tax_id",
+    "kod_edrpou": "tax_id",
+    "identyfikator": "tax_id",
+    "identyfikatsiinyi_kod": "tax_id",
+    "identifikatsiyniy_kod": "tax_id",
+    "kod_platnyka_podatkiv": "tax_id",
+    "rnokpp_edrpou": "tax_id",
+    "ipn": "tax_id",
     "edrpou": "tax_id",
     "yedrpou": "tax_id",
     "yedrpou_zemlekorystuvacha": "tax_id",
     "yedrpou_zemlekorystuvach": "tax_id",
     "rnokpp": "tax_id",
     "owner_name": "owner_name",
+    "owner": "owner_name",
+    "owner_full_name": "owner_name",
     "vlasnyk": "owner_name",
+    "nazva_vlasnyka": "owner_name",
+    "pib": "owner_name",
+    "p_i_b": "owner_name",
+    "prizvyshche_im_ya_po_batkovi": "owner_name",
+    "prizvyshche_im_ia_po_batkovi": "owner_name",
+    "prizvyshche_imya_po_batkovi": "owner_name",
+    "owner_last_name": "owner_last_name",
+    "last_name": "owner_last_name",
+    "surname": "owner_last_name",
+    "prizvyshche": "owner_last_name",
+    "owner_first_name": "owner_first_name",
+    "first_name": "owner_first_name",
+    "name": "owner_first_name",
+    "im_ya": "owner_first_name",
+    "imya": "owner_first_name",
+    "owner_middle_name": "owner_middle_name",
+    "middle_name": "owner_middle_name",
+    "patronymic": "owner_middle_name",
+    "po_batkovi": "owner_middle_name",
     "zemlekorystuvach": "owner_name",
     "ownership_share": "ownership_share",
     "chastka_vlasnosti": "ownership_share",
@@ -105,14 +135,43 @@ LAND_COLUMN_ALIASES = {
 
 ESTATE_COLUMN_ALIASES = {
     "tax_id": "tax_id",
+    "kod": "tax_id",
+    "kod_edrpou": "tax_id",
+    "identyfikator": "tax_id",
+    "identyfikatsiinyi_kod": "tax_id",
+    "identifikatsiyniy_kod": "tax_id",
+    "kod_platnyka_podatkiv": "tax_id",
+    "rnokpp_edrpou": "tax_id",
+    "ipn": "tax_id",
     "edrpou": "tax_id",
     "yedrpou": "tax_id",
     "rnokpp": "tax_id",
     "podatkovyi_nomer_pp": "tax_id",
     "podatkovyi_nomer": "tax_id",
     "owner_name": "owner_name",
+    "owner": "owner_name",
+    "owner_full_name": "owner_name",
     "vlasnyk": "owner_name",
     "nazva_platnyka": "owner_name",
+    "nazva_vlasnyka": "owner_name",
+    "pib": "owner_name",
+    "p_i_b": "owner_name",
+    "prizvyshche_im_ya_po_batkovi": "owner_name",
+    "prizvyshche_im_ia_po_batkovi": "owner_name",
+    "prizvyshche_imya_po_batkovi": "owner_name",
+    "owner_last_name": "owner_last_name",
+    "last_name": "owner_last_name",
+    "surname": "owner_last_name",
+    "prizvyshche": "owner_last_name",
+    "owner_first_name": "owner_first_name",
+    "first_name": "owner_first_name",
+    "name": "owner_first_name",
+    "im_ya": "owner_first_name",
+    "imya": "owner_first_name",
+    "owner_middle_name": "owner_middle_name",
+    "middle_name": "owner_middle_name",
+    "patronymic": "owner_middle_name",
+    "po_batkovi": "owner_middle_name",
     "object_type": "object_type",
     "typ_obiekta": "object_type",
     "typ_obyekta": "object_type",
@@ -311,24 +370,127 @@ def _inject_missing_columns(df: pd.DataFrame, expected_columns: set[str]) -> pd.
     return df
 
 
+def _compose_owner_name_columns(df: pd.DataFrame) -> pd.DataFrame:
+    part_columns = [column for column in ("owner_last_name", "owner_first_name", "owner_middle_name") if column in df.columns]
+    has_owner_column = "owner_name" in df.columns
+    if not part_columns and has_owner_column:
+        return df
+
+    if not has_owner_column:
+        df["owner_name"] = None
+
+    def _is_missing_owner(value: Any) -> bool:
+        text = (_to_str(value, "owner_name", required=False) or "").strip().lower()
+        return text in UNKNOWN_OWNER_VALUES
+
+    def _join_owner_parts(row: pd.Series) -> str | None:
+        parts: list[str] = []
+        for column in ("owner_last_name", "owner_first_name", "owner_middle_name"):
+            if column not in row.index:
+                continue
+            value = _to_str(row.get(column), column, required=False)
+            if value:
+                parts.append(value)
+        return " ".join(parts) if parts else None
+
+    if part_columns:
+        composed_names = df.apply(_join_owner_parts, axis=1)
+        for index, composed in composed_names.items():
+            if composed and _is_missing_owner(df.at[index, "owner_name"]):
+                df.at[index, "owner_name"] = composed
+
+    return df
+
+
+def _is_missing_owner_value(value: Any) -> bool:
+    text = (_to_str(value, "owner_name", required=False) or "").strip().lower()
+    return text in UNKNOWN_OWNER_VALUES
+
+
+def _looks_like_owner_column(column_name: str) -> bool:
+    normalized = _normalize_header(column_name)
+    owner_markers = (
+        "owner",
+        "vlasnyk",
+        "zemlekorystuvach",
+        "prizvyshche",
+        "imya",
+        "im_ya",
+        "po_batkovi",
+        "pib",
+        "nazva_vlasnyka",
+        "nazva_platnyka",
+    )
+    return any(marker in normalized for marker in owner_markers)
+
+
+def _resolve_owner_name(row: dict[str, Any]) -> str | None:
+    explicit = _to_str(row.get("owner_name"), "owner_name", required=False)
+    if explicit and not _is_missing_owner_value(explicit):
+        return explicit
+
+    split_parts = [
+        _to_str(row.get("owner_last_name"), "owner_last_name", required=False),
+        _to_str(row.get("owner_first_name"), "owner_first_name", required=False),
+        _to_str(row.get("owner_middle_name"), "owner_middle_name", required=False),
+    ]
+    composed = " ".join(part for part in split_parts if part)
+    if composed:
+        return composed
+
+    fallback_candidates: list[str] = []
+    for key, value in row.items():
+        if not _looks_like_owner_column(str(key)):
+            continue
+        candidate = _to_str(value, str(key), required=False)
+        if not candidate or _is_missing_owner_value(candidate):
+            continue
+        fallback_candidates.append(candidate)
+
+    if not fallback_candidates:
+        return None
+
+    # Prefer the most informative owner-like value when multiple columns exist.
+    return max(fallback_candidates, key=lambda value: len(value.strip()))
+
+
+def _read_csv_dataframe(content: bytes) -> pd.DataFrame:
+    last_error: Exception | None = None
+    for encoding in ("utf-8-sig", "cp1251", "utf-8"):
+        try:
+            parsed_any: Any = pd.read_csv(
+                BytesIO(content),
+                sep=None,
+                engine="python",
+                encoding=encoding,
+                iterator=False,
+                chunksize=None,
+            )
+            return cast(pd.DataFrame, parsed_any if isinstance(parsed_any, pd.DataFrame) else parsed_any.read())
+        except Exception as exc:  # pragma: no cover - only exercised for non-matching encodings
+            last_error = exc
+
+    raise ValueError(last_error or "Unknown CSV parse error")
+
+
 async def _read_table(file: UploadFile) -> pd.DataFrame:
     filename = (file.filename or "").lower()
-    content = await file.read()
+    content: bytes = await file.read()
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"File '{file.filename}' is empty")
 
+    if not (filename.endswith(".csv") or filename.endswith(".xlsx") or filename.endswith(".xls")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file format for '{file.filename}'. Use CSV or XLSX",
+        )
+
     try:
         if filename.endswith(".csv"):
-            df = pd.read_csv(BytesIO(content))
-        elif filename.endswith(".xlsx") or filename.endswith(".xls"):
-            df = pd.read_excel(BytesIO(content))
+            df = cast(pd.DataFrame, _read_csv_dataframe(content))
         else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported file format for '{file.filename}'. Use CSV or XLSX",
-            )
-    except HTTPException:
-        raise
+            parsed_any: Any = pd.read_excel(BytesIO(content))
+            df = cast(pd.DataFrame, parsed_any if isinstance(parsed_any, pd.DataFrame) else parsed_any.read())
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -346,7 +508,7 @@ async def _read_table(file: UploadFile) -> pd.DataFrame:
 def _ensure_columns(df: pd.DataFrame, required: set[str], filename: str | None) -> None:
     missing = sorted(required.difference(df.columns))
     if missing:
-        available = ", ".join(sorted(df.columns)[:30])
+        available = ", ".join(sorted(str(column) for column in df.columns)[:30])
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
@@ -367,12 +529,15 @@ async def import_registers(
     land_df = _canonicalize_columns(land_df, LAND_COLUMN_ALIASES)
     estate_df = _canonicalize_columns(estate_df, ESTATE_COLUMN_ALIASES)
 
-    land_df = _inject_missing_columns(land_df, LAND_REQUIRED_COLUMNS)
-    estate_df = _inject_missing_columns(estate_df, ESTATE_REQUIRED_COLUMNS)
+    land_df = _compose_owner_name_columns(land_df)
+    estate_df = _compose_owner_name_columns(estate_df)
 
     # Estate files may come with address-like headers that heuristics map to "location".
     if "address" not in estate_df.columns and "location" in estate_df.columns:
         estate_df = estate_df.rename(columns={"location": "address"})
+
+    _ensure_columns(land_df, LAND_REQUIRED_COLUMNS, land_file.filename)
+    _ensure_columns(estate_df, ESTATE_REQUIRED_COLUMNS, real_estate_file.filename)
 
     try:
         land_records: list[LandRecords] = []
@@ -394,8 +559,7 @@ async def import_registers(
                     area_ha=_to_decimal(row.get("area_ha"), "area_ha") or Decimal("0"),
                     valuation=_to_decimal(row.get("valuation"), "valuation") or Decimal("0"),
                     tax_id=_to_tax_id(row.get("tax_id"), required=False),
-                    owner_name=_to_str(row.get("owner_name"), "owner_name", required=False)
-                    or MISSING_OWNER_NAME_FALLBACK,
+                    owner_name=_resolve_owner_name(row) or MISSING_OWNER_NAME_FALLBACK,
                     ownership_share=(
                         _to_str(row.get("ownership_share"), "ownership_share", required=False)
                         or MISSING_OWNERSHIP_SHARE_FALLBACK
@@ -415,8 +579,7 @@ async def import_registers(
             estate_records.append(
                 RealEstateRecords(
                     tax_id=estate_tax_id,
-                    owner_name=_to_str(row.get("owner_name"), "owner_name", required=False)
-                    or MISSING_OWNER_NAME_FALLBACK,
+                    owner_name=_resolve_owner_name(row) or MISSING_OWNER_NAME_FALLBACK,
                     object_type=_to_str(row.get("object_type"), "object_type", required=False) or MISSING_TEXT_FALLBACK,
                     address=_to_str(row.get("address"), "address", required=False) or MISSING_TEXT_FALLBACK,
                     cadastral_number=_to_str(row.get("cadastral_number"), "cadastral_number"),

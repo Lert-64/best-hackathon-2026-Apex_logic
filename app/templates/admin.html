@@ -70,6 +70,12 @@
 
             <div class="p-4 sm:p-6 lg:p-8 space-y-8">
                 <section x-show="activeView==='dashboard'" x-transition>
+                    <div
+                        x-show="loadError"
+                        x-cloak
+                        class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+                        x-text="loadError"
+                    ></div>
                     <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
                         <article class="rounded-2xl border border-red-200/70 bg-gradient-to-br from-red-50 to-white p-5 shadow-sm">
                             <p class="text-[10px] uppercase tracking-[0.2em] font-black text-red-500">Втрати бюджету</p>
@@ -267,10 +273,34 @@
                 redAnomalies: [],
                 greenAnomalies: [],
                 auditLogs: [],
+                refreshTimerId: null,
+                loadError: null,
                 async init() {
                     await this.refreshAllData();
+                    // Keep OTG head table fresh when inspectors process items in parallel sessions.
+                    this.refreshTimerId = setInterval(() => {
+                        this.refreshAllData();
+                    }, 3000);
+                    document.addEventListener('visibilitychange', () => {
+                        if (!document.hidden) {
+                            this.refreshAllData();
+                        }
+                    });
+                },
+                async fetchJsonNoCache(url) {
+                    const separator = url.includes('?') ? '&' : '?';
+                    const response = await fetch(`${url}${separator}_ts=${Date.now()}`, {
+                        credentials: 'same-origin',
+                        cache: 'no-store'
+                    });
+                    if (response.status === 401 || response.status === 403) {
+                        window.location.href = '/login';
+                        throw new Error('Unauthorized');
+                    }
+                    return response;
                 },
                 async refreshAllData() {
+                    this.loadError = null;
                     await Promise.all([
                         this.loadStats(),
                         this.loadAnomalies(),
@@ -279,30 +309,51 @@
                 },
                 async loadStats() {
                     try {
-                        const response = await fetch('/api/anomalies/stats', { credentials: 'same-origin' });
-                        if (!response.ok) return;
+                        const response = await this.fetchJsonNoCache('/api/anomalies/stats');
+                        if (!response.ok) {
+                            this.loadError = 'Не вдалося завантажити статистику.';
+                            return;
+                        }
                         const payload = await response.json();
                         this.kpi.inWork = payload.in_work || 0;
-                    } catch (_) {}
+                    } catch (error) {
+                        if (error?.message !== 'Unauthorized') {
+                            this.loadError = 'Помилка оновлення статистики.';
+                        }
+                    }
                 },
                 async loadAnomalies() {
                     try {
-                        const response = await fetch('/api/anomalies', { credentials: 'same-origin' });
-                        if (!response.ok) return;
+                        const response = await this.fetchJsonNoCache('/api/anomalies');
+                        if (!response.ok) {
+                            this.loadError = 'Не вдалося завантажити таблицю аномалій.';
+                            return;
+                        }
                         const items = await response.json();
                         this.redAnomalies = items.filter(x => x.zone === 'RED');
                         this.greenAnomalies = items.filter(x => x.zone === 'GREEN');
                         this.kpi.redCount = this.redAnomalies.length;
                         this.kpi.greenCount = this.greenAnomalies.length;
                         this.kpi.potentialLoss = this.redAnomalies.reduce((sum, x) => sum + Number(x.potential_loss_uah || 0), 0);
-                    } catch (_) {}
+                    } catch (error) {
+                        if (error?.message !== 'Unauthorized') {
+                            this.loadError = 'Помилка оновлення таблиці аномалій.';
+                        }
+                    }
                 },
                 async loadAuditLogs() {
                     try {
-                        const response = await fetch('/api/audit-logs', { credentials: 'same-origin' });
-                        if (!response.ok) return;
+                        const response = await this.fetchJsonNoCache('/api/audit-logs');
+                        if (!response.ok) {
+                            this.loadError = 'Не вдалося завантажити журнал аудиту.';
+                            return;
+                        }
                         this.auditLogs = await response.json();
-                    } catch (_) {}
+                    } catch (error) {
+                        if (error?.message !== 'Unauthorized') {
+                            this.loadError = 'Помилка оновлення журналу аудиту.';
+                        }
+                    }
                 },
                 formatMoney(value) {
                     return new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(Number(value || 0));
