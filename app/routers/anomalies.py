@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.backend.dependencies import db_dep, require_role
 from app.core.config import settings
@@ -157,7 +157,10 @@ async def list_pool(
     stmt = (
         select(Anomalies)
         .where(
-            Anomalies.status == AnomalyStatus.NEW,
+            or_(
+                Anomalies.status == AnomalyStatus.NEW,
+                Anomalies.status == AnomalyStatus.PENDING_ADMIN,
+            )
         )
         .order_by(Anomalies.created_at.asc())
     )
@@ -171,7 +174,10 @@ async def list_pool_html(request: Request, db: db_dep, _=Depends(require_role(Us
     stmt = (
         select(Anomalies)
         .where(
-            Anomalies.status == AnomalyStatus.NEW,
+            or_(
+                Anomalies.status == AnomalyStatus.NEW,
+                Anomalies.status == AnomalyStatus.PENDING_ADMIN,
+            )
         )
         .order_by(Anomalies.created_at.asc())
     )
@@ -231,7 +237,8 @@ async def take_task(
         if anomaly is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anomaly not found")
 
-        if anomaly.status != AnomalyStatus.NEW:
+
+        if anomaly.status not in {AnomalyStatus.NEW, AnomalyStatus.PENDING_ADMIN}:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Task is not available in the pool",
