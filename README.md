@@ -1,4 +1,5 @@
 # 🏘️ Mezha
+**Live Demo:** [apex-logic.online](https://apex-logic.online)
 
 Mezha - веб-застосунок на FastAPI для автоматизованого аудиту земельних і майнових реєстрів територіальних громад.
 
