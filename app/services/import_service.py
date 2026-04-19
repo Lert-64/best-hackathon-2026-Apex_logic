@@ -17,13 +17,7 @@ from app.models.land_model import LandRecords
 from app.models.real_estate_model import RealEstateRecords
 
 LAND_REQUIRED_COLUMNS = {
-    "cadastral_number",
-    "koatuu",
-    "ownership_type",
-    "purpose",
-    "location",
-    "area_ha",
-    "valuation",
+    "tax_id",
     "owner_name",
     "ownership_share",
     "reg_date",
@@ -40,10 +34,12 @@ ESTATE_REQUIRED_COLUMNS = {
     "total_area_sqm",
 }
 
+MISSING_OWNERSHIP_SHARE_FALLBACK = "UNKNOWN"
+MISSING_OWNER_NAME_FALLBACK = "UNKNOWN_OWNER"
+
 LAND_COLUMN_ALIASES = {
     "cadastral_number": "cadastral_number",
     "cadastral_no": "cadastral_number",
-    "kadastrovyi_nomer": "cadastral_number",
     "kadastrovyi_nomer": "cadastral_number",
     "kadastralnyi_nomer": "cadastral_number",
     "kadastr_number": "cadastral_number",
@@ -67,6 +63,8 @@ LAND_COLUMN_ALIASES = {
     "tax_id": "tax_id",
     "edrpou": "tax_id",
     "yedrpou": "tax_id",
+    "yedrpou_zemlekorystuvacha": "tax_id",
+    "yedrpou_zemlekorystuvach": "tax_id",
     "rnokpp": "tax_id",
     "owner_name": "owner_name",
     "vlasnyk": "owner_name",
@@ -79,14 +77,17 @@ LAND_COLUMN_ALIASES = {
     "data_reyestratsii": "reg_date",
     "data_reyestratsiyi": "reg_date",
     "data_reiestratsiyi": "reg_date",
+    "data_derzhavnoyi_reyestratsiyi_prava": "reg_date",
+    "data_derzhavnoyi_reyestratsiyi_prava_vlasnosti": "reg_date",
     "record_number": "record_number",
     "nomer_zapysu": "record_number",
+    "nomer_zapysu_pro_pravo": "record_number",
+    "nomer_zapysu_pro_prava": "record_number",
     "reg_authority": "reg_authority",
     "organ_reiestracii": "reg_authority",
     "organ_reyestratsii": "reg_authority",
     "orhan_reyestratsii": "reg_authority",
     "orhan_reiestracii": "reg_authority",
-    "orhan_reyestratsiyi": "reg_authority",
     "orhan_reiestratsiyi": "reg_authority",
     "orhan_shcho_zdiisnyv_derzhavnu_reyestratsiyu_prava_vlasnosti": "reg_authority",
     "doc_type": "doc_type",
@@ -102,31 +103,44 @@ ESTATE_COLUMN_ALIASES = {
     "edrpou": "tax_id",
     "yedrpou": "tax_id",
     "rnokpp": "tax_id",
+    "podatkovyi_nomer_pp": "tax_id",
+    "podatkovyi_nomer": "tax_id",
     "owner_name": "owner_name",
     "vlasnyk": "owner_name",
+    "nazva_platnyka": "owner_name",
     "object_type": "object_type",
     "typ_obiekta": "object_type",
     "typ_obyekta": "object_type",
+    "typ_ob_yekta": "object_type",
+    "typ_ob_iekta": "object_type",
     "address": "address",
+    "location": "address",
     "adresa": "address",
     "adres": "address",
+    "adresa_obiekta": "address",
+    "adresa_ob_iekta": "address",
     "total_area_sqm": "total_area_sqm",
     "zahalna_ploshcha_kv_m": "total_area_sqm",
     "zahalna_ploshcha_kvm": "total_area_sqm",
+    "zahalna_ploshcha": "total_area_sqm",
     "cadastral_number": "cadastral_number",
-    "kadastrovyi_nomer": "cadastral_number",
     "kadastrovyi_nomer": "cadastral_number",
     "reg_date": "reg_date",
     "data_reiestracii": "reg_date",
     "data_reyestratsii": "reg_date",
     "data_reyestratsiyi": "reg_date",
     "data_reiestratsiyi": "reg_date",
+    "data_derzh_reyestr_prava_vlasn": "reg_date",
     "termination_date": "termination_date",
     "data_prypynennia": "termination_date",
+    "data_derzh_reyestr_pryp_prava_vlasn": "termination_date",
     "joint_ownership_type": "joint_ownership_type",
     "spilna_vlasnist_type": "joint_ownership_type",
+    "vyd_spilnoyi_vlasnosti": "joint_ownership_type",
+    "vyd_spil_noyi_vlasnosti": "joint_ownership_type",
     "ownership_share": "ownership_share",
     "chastka_vlasnosti": "ownership_share",
+    "rozmir_chastky_u_pravi_spilnoyi_vlasnosti": "ownership_share",
 }
 
 CYRILLIC_MAP = str.maketrans(
@@ -215,6 +229,47 @@ def _to_str(value: Any, field: str, required: bool = False) -> str | None:
     return text or None
 
 
+def _to_tax_id(value: Any, required: bool = False) -> str | None:
+    value = _none_if_nan(value)
+    if value is None:
+        if required:
+            raise ValueError("Missing required value for 'tax_id'")
+        return None
+
+    text = str(value).strip().replace("\u00a0", "")
+    if not text:
+        if required:
+            raise ValueError("Missing required value for 'tax_id'")
+        return None
+
+    lowered = text.lower()
+    if lowered in {"#н/д", "#n/a", "n/a", "nan", "none", "null"}:
+        if required:
+            raise ValueError("Missing required value for 'tax_id'")
+        return None
+
+    compact = re.sub(r"\s+", "", text)
+
+    # Handle values like 1,25E+09 and keep the full integer identifier.
+    if re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?(?:[eE][+-]?\d+)?", compact):
+        numeric_text = compact.replace(",", ".")
+        try:
+            numeric_value = Decimal(numeric_text)
+            if numeric_value == numeric_value.to_integral_value():
+                return str(int(numeric_value))
+        except InvalidOperation:
+            pass
+
+    if re.search(r"\d", compact):
+        digits = re.sub(r"\D", "", compact)
+        if digits:
+            return digits
+
+    if required:
+        raise ValueError("Missing required value for 'tax_id'")
+    return None
+
+
 def _to_decimal(value: Any, field: str, required: bool = False) -> Decimal | None:
     value = _none_if_nan(value)
     if value is None:
@@ -295,27 +350,38 @@ async def import_registers(
     land_df = _canonicalize_columns(land_df, LAND_COLUMN_ALIASES)
     estate_df = _canonicalize_columns(estate_df, ESTATE_COLUMN_ALIASES)
 
+    # Estate files may come with address-like headers that heuristics map to "location".
+    if "address" not in estate_df.columns and "location" in estate_df.columns:
+        estate_df = estate_df.rename(columns={"location": "address"})
+
     _ensure_columns(land_df, LAND_REQUIRED_COLUMNS, land_file.filename)
     _ensure_columns(estate_df, ESTATE_REQUIRED_COLUMNS, real_estate_file.filename)
 
     try:
         land_records: list[LandRecords] = []
-        for row in land_df.to_dict(orient="records"):
+        for index, row in enumerate(land_df.to_dict(orient="records"), start=1):
+            record_number = _to_str(row.get("record_number"), "record_number", required=True)
             land_records.append(
                 LandRecords(
-                    cadastral_number=_to_str(row.get("cadastral_number"), "cadastral_number", required=True),
-                    koatuu=_to_str(row.get("koatuu"), "koatuu", required=True),
-                    ownership_type=_to_str(row.get("ownership_type"), "ownership_type", required=True),
-                    purpose=_to_str(row.get("purpose"), "purpose", required=True),
-                    location=_to_str(row.get("location"), "location", required=True),
+                    cadastral_number=(
+                        _to_str(row.get("cadastral_number"), "cadastral_number") or f"AUTO-LAND-{record_number}-{index}"
+                    ),
+                    koatuu=_to_str(row.get("koatuu"), "koatuu") or "UNKNOWN",
+                    ownership_type=_to_str(row.get("ownership_type"), "ownership_type") or "UNKNOWN",
+                    purpose=_to_str(row.get("purpose"), "purpose") or "UNKNOWN",
+                    location=_to_str(row.get("location"), "location") or "UNKNOWN",
                     agri_type=_to_str(row.get("agri_type"), "agri_type"),
-                    area_ha=_to_decimal(row.get("area_ha"), "area_ha", required=True),
-                    valuation=_to_decimal(row.get("valuation"), "valuation", required=True),
-                    tax_id=_to_str(row.get("tax_id"), "tax_id"),
-                    owner_name=_to_str(row.get("owner_name"), "owner_name", required=True),
-                    ownership_share=_to_str(row.get("ownership_share"), "ownership_share", required=True),
+                    area_ha=_to_decimal(row.get("area_ha"), "area_ha") or Decimal("0"),
+                    valuation=_to_decimal(row.get("valuation"), "valuation") or Decimal("0"),
+                    tax_id=_to_tax_id(row.get("tax_id"), required=False),
+                    owner_name=_to_str(row.get("owner_name"), "owner_name", required=False)
+                    or MISSING_OWNER_NAME_FALLBACK,
+                    ownership_share=(
+                        _to_str(row.get("ownership_share"), "ownership_share", required=False)
+                        or MISSING_OWNERSHIP_SHARE_FALLBACK
+                    ),
                     reg_date=_to_date(row.get("reg_date"), "reg_date", required=True),
-                    record_number=_to_str(row.get("record_number"), "record_number", required=True),
+                    record_number=record_number,
                     reg_authority=_to_str(row.get("reg_authority"), "reg_authority", required=True),
                     doc_type=_to_str(row.get("doc_type"), "doc_type", required=True),
                     doc_subtype=_to_str(row.get("doc_subtype"), "doc_subtype"),
@@ -323,11 +389,13 @@ async def import_registers(
             )
 
         estate_records: list[RealEstateRecords] = []
-        for row in estate_df.to_dict(orient="records"):
+        for index, row in enumerate(estate_df.to_dict(orient="records"), start=1):
+            estate_tax_id = _to_tax_id(row.get("tax_id"), required=False) or f"UNKNOWN-ESTATE-{index}"
             estate_records.append(
                 RealEstateRecords(
-                    tax_id=_to_str(row.get("tax_id"), "tax_id", required=True),
-                    owner_name=_to_str(row.get("owner_name"), "owner_name", required=True),
+                    tax_id=estate_tax_id,
+                    owner_name=_to_str(row.get("owner_name"), "owner_name", required=False)
+                    or MISSING_OWNER_NAME_FALLBACK,
                     object_type=_to_str(row.get("object_type"), "object_type", required=True),
                     address=_to_str(row.get("address"), "address", required=True),
                     cadastral_number=_to_str(row.get("cadastral_number"), "cadastral_number"),
